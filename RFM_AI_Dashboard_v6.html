@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoRewards - RFM Customer 360 Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hidden-view { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f5f9; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        .rfm-grid { display: grid; grid-template-columns: 80px repeat(5, 1fr); grid-template-rows: repeat(3, 100px) 40px; gap: 8px; }
+        .rfm-cell { border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .rfm-cell:hover { transform: scale(1.02); box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
+        .rfm-title { font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; }
+        .rfm-count { font-size: 1.25rem; font-weight: 800; background: rgba(255,255,255,0.8); border-radius: 9999px; padding: 2px 12px; }
+        
+        .bg-champions { background-color: #60A5FA; color: white; }
+        .bg-loyal { background-color: #9CA3AF; color: white; }
+        .bg-cannot-lose { background-color: #F87171; color: white; }
+        .bg-potential { background-color: #4ADE80; color: white; }
+        .bg-need-attention { background-color: #FCD34D; color: #78350F; }
+        .bg-at-risk { background-color: #FDBA74; color: #7C2D12; }
+        .bg-new { background-color: #A3E635; color: #3F6212; }
+        .bg-promising { background-color: #D6D3D1; color: #44403C; }
+        .bg-about-sleep { background-color: #38BDF8; color: white; }
+        .bg-hibernating { background-color: #D1D5DB; color: #374151; }
+        
+        .badge { padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; display: inline-block;}
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navigation -->
+    <nav class="bg-indigo-900 text-white shadow-md z-20 flex-shrink-0">
+        <div class="px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="bg-white p-1 rounded-md text-indigo-900">
+                    <i class="fas fa-leaf text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">EcoRewards Analytics</h1>
+                    <p class="text-xs text-indigo-300">AI-Powered RFM Segmentation (AITSPIN PIN 121)</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-4">
+                <button onclick="switchView('dashboard')" id="nav-dashboard" class="px-4 py-2 bg-indigo-800 rounded-lg text-sm font-medium transition hover:bg-indigo-700 ring-2 ring-indigo-400">
+                    <i class="fas fa-chart-pie mr-2"></i> Dashboard Overview
+                </button>
+                <button onclick="switchView('customer360')" id="nav-c360" class="px-4 py-2 bg-transparent rounded-lg text-sm font-medium transition hover:bg-indigo-800">
+                    <i class="fas fa-user-circle mr-2"></i> Customer 360
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow overflow-auto p-6 relative">
+        
+        <!-- INITIAL UPLOAD OVERLAY -->
+        <div id="upload-overlay" class="absolute inset-0 bg-slate-50 z-50 flex flex-col items-center justify-center fade-in">
+            <div class="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center border border-slate-200">
+                <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
+                    <i class="fas fa-file-excel text-4xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Upload Data v3 (Personalization)</h2>
+                <p class="text-slate-500 mb-6 text-sm">Upload the Excel file containing Age, Gender, Region, and PreferredFuel to enable hyper-personalized rewards.</p>
+                <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg shadow-sm transition block w-full">
+                    <i class="fas fa-cloud-upload-alt mr-2"></i> Select Excel File
+                    <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
+                </label>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: DASHBOARD OVERVIEW                 -->
+        <!-- ========================================== -->
+        <div id="view-dashboard" class="hidden-view fade-in h-full flex flex-col gap-6">
+            
+            <div class="grid grid-cols-4 gap-4 flex-shrink-0">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total Customers</p>
+                        <p class="text-3xl font-black text-slate-800" id="kpi-total">0</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-xl"><i class="fas fa-users"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Avg Recency</p>
+                        <p class="text-3xl font-black text-slate-800"><span id="kpi-recency">0</span> <span class="text-sm font-medium text-slate-400">days</span></p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 text-xl"><i class="fas fa-clock"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between border-l-4 border-l-rose-500">
+                    <div>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1 text-rose-600">High Churn Risk (Target)</p>
+                        <p class="text-3xl font-black text-rose-600" id="kpi-target">0</p>
+                        <p class="text-xs font-medium text-rose-400 mt-1">Need Attention + At Risk</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between border-l-4 border-l-emerald-500">
+                    <div>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1 text-emerald-600">Est. EBITDA Rescue (฿0.5/L)</p>
+                        <p class="text-3xl font-black text-emerald-600" id="kpi-ebitda">฿0</p>
+                        <p class="text-xs font-medium text-emerald-400 mt-1">Based on targeted segments</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl"><i class="fas fa-chart-line"></i></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6 flex-grow min-h-0">
+                <div class="col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">RFM Segmentation Matrix</h2>
+                            <p class="text-xs text-slate-500">Mapping based on Recency (Days) and Monetary/Frequency (Volume L)</p>
+                        </div>
+                        <button onclick="runPredictive()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                            <i class="fas fa-magic"></i> Auto-Classify (AI)
+                        </button>
+                    </div>
+                    <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <div class="rfm-grid w-full h-full relative">
+                            <div class="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-bold text-slate-500 flex items-center gap-2 whitespace-nowrap">Freq x Monetary <i class="fas fa-arrow-right"></i></div>
+                            <div class="absolute -bottom-8 right-12 text-sm font-bold text-slate-500 flex items-center gap-2"><i class="fas fa-arrow-left"></i> Recency</div>
+
+                            <!-- Row 1 -->
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">High</div>
+                            <div class="rfm-cell bg-cannot-lose col-span-2" onclick="filterTable('Cannot Lose Them')"><div class="rfm-title">Cannot Lose Them</div><div class="rfm-count" id="count-cannot-lose">0</div></div>
+                            <div class="rfm-cell bg-loyal col-span-2" onclick="filterTable('Loyal')"><div class="rfm-title">Loyal</div><div class="rfm-count" id="count-loyal">0</div></div>
+                            <div class="rfm-cell bg-champions" onclick="filterTable('Champions')"><div class="rfm-title">Champions</div><div class="rfm-count" id="count-champions">0</div></div>
+
+                            <!-- Row 2 -->
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">Mid</div>
+                            <div class="rfm-cell bg-at-risk col-span-2" onclick="filterTable('At Risk')"><div class="rfm-title">At Risk</div><div class="rfm-count" id="count-at-risk">0</div></div>
+                            <div class="rfm-cell bg-need-attention" onclick="filterTable('Need Attention')"><div class="rfm-title">Need Attention</div><div class="rfm-count" id="count-need-attention">0</div></div>
+                            <div class="rfm-cell bg-potential col-span-2" onclick="filterTable('Potential Loyalist')"><div class="rfm-title">Potential Loyalist</div><div class="rfm-count" id="count-potential">0</div></div>
+
+                            <!-- Row 3 -->
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">Low</div>
+                            <div class="rfm-cell bg-hibernating col-span-2" onclick="filterTable('Hibernating')"><div class="rfm-title">Hibernating</div><div class="rfm-count" id="count-hibernating">0</div></div>
+                            <div class="rfm-cell bg-about-sleep" onclick="filterTable('About To Sleep')"><div class="rfm-title">About To Sleep</div><div class="rfm-count" id="count-about-sleep">0</div></div>
+                            <div class="rfm-cell bg-promising" onclick="filterTable('Promising')"><div class="rfm-title">Promising</div><div class="rfm-count" id="count-promising">0</div></div>
+                            <div class="rfm-cell bg-new" onclick="filterTable('New Customers')"><div class="rfm-title">New Customers</div><div class="rfm-count" id="count-new">0</div></div>
+                            
+                            <div></div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">> 60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2"></div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">30-60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2">< 30 days</div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">< 7 days</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
+                    <h2 class="text-lg font-bold text-slate-800 mb-2">Volume Distribution</h2>
+                    <p class="text-xs text-slate-500 mb-4">Baseline Liters across segments</p>
+                    <div class="flex-grow relative w-full h-full min-h-[200px]"><canvas id="volumeChart"></canvas></div>
+                    <div class="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                        <h3 class="text-sm font-bold text-indigo-900 mb-1"><i class="fas fa-lightbulb text-amber-500 mr-1"></i> AI Recommendation</h3>
+                        <p class="text-xs text-indigo-700 leading-relaxed">Focus immediate generative campaigns on <strong>"Cannot Lose Them"</strong> and <strong>"At Risk"</strong> segments. They represent high baseline volume with high churn probability.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: CUSTOMER 360 & GEN AI ACTION       -->
+        <!-- ========================================== -->
+        <div id="view-customer360" class="hidden-view fade-in h-full flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-lg font-bold text-slate-800"><i class="fas fa-list mr-2 text-slate-400"></i> Customer 360 Review</h2>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="search-input" onkeyup="searchTable()" placeholder="Search ID..." class="pl-9 pr-4 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48">
+                    </div>
+                    <select id="filter-segment" onchange="filterTableBySelect()" class="py-1.5 pl-3 pr-8 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="All">All Segments</option>
+                        <option value="Target">🎯 Recommended Targets Only</option>
+                        <hr>
+                        <option value="Cannot Lose Them">Cannot Lose Them</option>
+                        <option value="At Risk">At Risk</option>
+                        <option value="Need Attention">Need Attention</option>
+                        <option value="Champions">Champions</option>
+                        <option value="Loyal">Loyal</option>
+                        <option value="Potential Loyalist">Potential Loyalist</option>
+                        <option value="New Customers">New Customers</option>
+                        <option value="Promising">Promising</option>
+                        <option value="About To Sleep">About To Sleep</option>
+                        <option value="Hibernating">Hibernating</option>
+                    </select>
+                </div>
+                
+                <div class="flex gap-2 items-center">
+                    <span class="text-sm text-slate-500 mr-2">Selected: <span id="selected-count" class="font-bold text-slate-800">0</span></span>
+                    <!-- Bulk Actions Buttons -->
+                    <button id="btn-batch-gen" onclick="batchGenerate()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-1.5 rounded-md text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>
+                        <i class="fas fa-robot mr-1"></i> Auto-Draft Selected
+                    </button>
+                    <button id="btn-batch-approve" onclick="batchApprove()" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-1.5 rounded-md text-sm font-semibold shadow-sm transition opacity-50 cursor-not-allowed" disabled>
+                        <i class="fas fa-check-double mr-1"></i> Approve & Send All
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-auto table-container">
+                <table class="w-full text-left border-collapse" id="main-table">
+                    <thead class="bg-slate-100 sticky top-0 z-10 shadow-sm">
+                        <tr class="text-slate-600 text-[0.7rem] uppercase tracking-wider font-bold">
+                            <th class="p-3 border-b border-slate-200 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleAllCheckboxes()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"></th>
+                            <th class="p-3 border-b border-slate-200 w-40">Cust ID / Demo</th>
+                            <th class="p-3 border-b border-slate-200 w-20 text-right">Vol(L)</th>
+                            <th class="p-3 border-b border-slate-200 w-24 text-right">Recency(D)</th>
+                            <th class="p-3 border-b border-slate-200 w-20 text-right">Points</th>
+                            <th class="p-3 border-b border-slate-200 min-w-[140px]">AI Segment</th>
+                            <th class="p-3 border-b border-slate-200 min-w-[320px]">GenAI Personalized Campaign (Human Review)</th>
+                            <th class="p-3 border-b border-slate-200 w-24 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="text-slate-700 text-sm divide-y divide-slate-100">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </main>
+
+    <script>
+        const GEMINI_API_KEY = "YOUR_API_KEY"; // Placeholder for API key
+        const MARGIN_PER_LITER = 0.50; // Updated margin to 0.5 THB/L
+
+        let rawData = [];
+        let myChart = null;
+        let ebitdaTotal = 0;
+        let isDataLoaded = false;
+        
+        function switchView(viewName) {
+            if (!isDataLoaded) { alert("Please upload Excel file first."); return; }
+            document.getElementById('upload-overlay').classList.add('hidden-view');
+            document.getElementById('view-dashboard').classList.add('hidden-view');
+            document.getElementById('view-customer360').classList.add('hidden-view');
+            document.getElementById('nav-dashboard').classList.remove('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+            document.getElementById('nav-c360').classList.remove('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+            
+            if(viewName === 'dashboard') {
+                document.getElementById('view-dashboard').classList.remove('hidden-view');
+                document.getElementById('nav-dashboard').classList.add('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+                if(myChart) myChart.update();
+            } else {
+                document.getElementById('view-customer360').classList.remove('hidden-view');
+                document.getElementById('nav-c360').classList.add('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+            }
+        }
+
+        document.getElementById('excel-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                isDataLoaded = true;
+                processData();
+                switchView('dashboard');
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function processData() {
+            let totalVolume = 0;
+            let totalDays = 0;
+            
+            rawData.forEach((row, i) => {
+                row.id_index = i;
+                row.status = 'Pending';
+                row.message = '';
+                
+                const r = parseInt(row.DaysSinceLastPurchase) || 0;
+                const v = parseInt(row.BaselineVolume) || 0;
+                
+                totalVolume += v;
+                totalDays += r;
+                
+                row.segment = 'Unclassified';
+                row.segmentClass = 'bg-slate-200 text-slate-700';
+                row.isTarget = false;
+                
+                // Assign Segment logic
+                if (v >= 150) { 
+                    if (r <= 14) { row.segment = 'Champions'; row.segmentClass = 'bg-blue-100 text-blue-700 border border-blue-300'; }
+                    else if (r <= 30) { row.segment = 'Loyal'; row.segmentClass = 'bg-slate-200 text-slate-700 border border-slate-300'; }
+                    else { row.segment = 'Cannot Lose Them'; row.segmentClass = 'bg-rose-100 text-rose-700 border border-rose-300 font-bold'; row.isTarget = true; }
+                } 
+                else if (v >= 50) { 
+                    if (r <= 14) { row.segment = 'Potential Loyalist'; row.segmentClass = 'bg-emerald-100 text-emerald-700 border border-emerald-300'; }
+                    else if (r <= 30) { row.segment = 'Need Attention'; row.segmentClass = 'bg-amber-100 text-amber-700 border border-amber-300'; row.isTarget = true; }
+                    else { row.segment = 'At Risk'; row.segmentClass = 'bg-orange-100 text-orange-700 border border-orange-300 font-bold'; row.isTarget = true; }
+                }
+                else { 
+                    if (r <= 14) { row.segment = 'New Customers'; row.segmentClass = 'bg-lime-100 text-lime-700 border border-lime-300'; }
+                    else if (r <= 30) { row.segment = 'Promising'; row.segmentClass = 'bg-stone-200 text-stone-700 border border-stone-300'; }
+                    else if (r <= 60) { row.segment = 'About To Sleep'; row.segmentClass = 'bg-sky-100 text-sky-700 border border-sky-300'; }
+                    else { row.segment = 'Hibernating'; row.segmentClass = 'bg-gray-200 text-gray-700 border border-gray-300'; }
+                }
+            });
+
+            updateDashboardKPIs(totalDays);
+            renderTable();
+            initChart();
+        }
+
+        function runPredictive() {
+            document.querySelectorAll('.rfm-count').forEach(el => {
+                el.classList.add('animate-pulse');
+                setTimeout(() => el.classList.remove('animate-pulse'), 1000);
+            });
+            processData();
+        }
+
+        function updateDashboardKPIs(totalDays) {
+            document.getElementById('kpi-total').innerText = rawData.length;
+            document.getElementById('kpi-recency').innerText = Math.round(totalDays / rawData.length);
+            
+            const counts = {};
+            let targetCount = 0;
+            
+            rawData.forEach(row => {
+                counts[row.segment] = (counts[row.segment] || 0) + 1;
+                if(row.isTarget) targetCount++;
+            });
+            
+            const idMapping = {
+                'Champions': 'count-champions',
+                'Loyal': 'count-loyal',
+                'Cannot Lose Them': 'count-cannot-lose',
+                'Potential Loyalist': 'count-potential',
+                'Need Attention': 'count-need-attention',
+                'At Risk': 'count-at-risk',
+                'New Customers': 'count-new',
+                'Promising': 'count-promising',
+                'About To Sleep': 'count-about-sleep',
+                'Hibernating': 'count-hibernating'
+            };
+
+            for (const [key, value] of Object.entries(counts)) {
+                const id = idMapping[key];
+                if (id) {
+                    const el = document.getElementById(id);
+                    if(el) el.innerText = value;
+                }
+            }
+            document.getElementById('kpi-target').innerText = targetCount;
+        }
+
+        function renderTable(filterSegment = 'All') {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            let displayData = rawData;
+            if(filterSegment === 'Target') {
+                displayData = rawData.filter(r => r.isTarget);
+            } else if (filterSegment !== 'All') {
+                displayData = rawData.filter(r => r.segment === filterSegment);
+            }
+            
+            displayData.forEach(row => {
+                const index = row.id_index;
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition " + (row.isTarget ? "bg-orange-50/30" : "");
+                tr.id = `row-${index}`;
+                
+                const disableCheck = row.status === 'Approved' ? 'disabled' : '';
+                const cbHtml = row.isTarget ? 
+                    `<input type="checkbox" class="row-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" value="${index}" onchange="updateSelection()" ${disableCheck}>` : 
+                    `<i class="fas fa-minus text-slate-300 text-xs"></i>`;
+
+                let actionHtml = '';
+                if (row.status === 'Approved') {
+                    actionHtml = `<div class="text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-100">${row.message}</div>`;
+                } else if (row.status === 'Drafted') {
+                    actionHtml = `
+                        <textarea id="msg-${index}" class="w-full text-xs p-2 border border-indigo-200 rounded mb-1 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30" rows="3">${row.message}</textarea>
+                    `;
+                } else if (row.isTarget) {
+                    actionHtml = `<button onclick="generateSingle(${index})" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-3 py-1 rounded transition w-full"><i class="fas fa-sparkles mr-1"></i> GenAI Draft</button>`;
+                } else {
+                    actionHtml = `<span class="text-xs text-slate-400 italic">N/A (Not Target)</span>`;
+                }
+                
+                let statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-slate-100 text-slate-500">Pending</span>`;
+                if(row.status === 'Drafted') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
+                if(row.status === 'Approved') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-emerald-100 text-emerald-700"><i class="fas fa-check"></i> Sent</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 border-b border-slate-100 text-center">${cbHtml}</td>
+                    <td class="p-3 border-b border-slate-100 font-medium font-mono text-xs">
+                        <div class="text-slate-800 font-bold">${row.CustomerID || '-'}</div>
+                        <div class="text-[0.65rem] text-slate-500 mt-1">
+                            <i class="fas ${row.Gender === 'Female' ? 'fa-venus text-pink-400' : 'fa-mars text-blue-400'}"></i> ${row.Gender || 'N/A'}, Age ${row.Age || '?'}
+                        </div>
+                        <div class="text-[0.65rem] text-slate-500 mt-0.5">
+                            <i class="fas fa-map-marker-alt text-rose-400"></i> ${row.Region || 'N/A'} • <i class="fas fa-gas-pump text-amber-500"></i> ${row.PreferredFuel || 'N/A'}
+                        </div>
+                    </td>
+                    <td class="p-3 border-b border-slate-100 text-right ${row.isTarget ? 'font-bold' : ''}">${row.BaselineVolume}</td>
+                    <td class="p-3 border-b border-slate-100 text-right ${row.DaysSinceLastPurchase > 30 ? 'text-rose-600 font-bold' : ''}">${row.DaysSinceLastPurchase}</td>
+                    <td class="p-3 border-b border-slate-100 text-right text-xs">${row.CurrentPoints}</td>
+                    <td class="p-3 border-b border-slate-100"><span class="badge inline-block ${row.segmentClass}">${row.segment}</span></td>
+                    <td class="p-3 border-b border-slate-100" id="cell-action-${index}">${actionHtml}</td>
+                    <td class="p-3 border-b border-slate-100 text-center" id="cell-status-${index}">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateSelection();
+        }
+
+        function filterTable(segmentName) {
+            document.getElementById('filter-segment').value = segmentName;
+            switchView('customer360');
+            renderTable(segmentName);
+        }
+
+        function filterTableBySelect() {
+            renderTable(document.getElementById('filter-segment').value);
+            document.getElementById('check-all').checked = false;
+            updateSelection();
+        }
+
+        function searchTable() {
+            const input = document.getElementById("search-input").value.toUpperCase();
+            const trs = document.getElementById("main-table").getElementsByTagName("tr");
+            
+            for (let i = 1; i < trs.length; i++) {
+                let td = trs[i].getElementsByTagName("td")[1];
+                if (td) {
+                    if ((td.textContent || td.innerText).toUpperCase().indexOf(input) > -1) {
+                        trs[i].style.display = "";
+                    } else {
+                        trs[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        // --- GEN AI SIMULATION ---
+        function generateSingle(index) {
+            return new Promise(resolve => {
+                const row = rawData[index];
+                if(row.status === 'Approved') { resolve(); return; }
+                
+                const actionCell = document.getElementById(`cell-action-${index}`);
+                const statusCell = document.getElementById(`cell-status-${index}`);
+                
+                if(actionCell) actionCell.innerHTML = `<span class="text-xs text-indigo-500 animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i> Calling LLM API...</span>`;
+                
+                setTimeout(() => {
+                    // Context-aware Greeting
+                    let greeting = "Hello";
+                    if(row.Region === 'North') greeting = "Sawaddeeเจ้า! Hope you're keeping cool.";
+                    if(row.Region === 'South') greeting = "Sawasdee from the sunny South!";
+                    if(row.Region === 'Northeast') greeting = "Sabai dee bo? We miss seeing you.";
+                    
+                    // Hyper-personalized Reward Logic
+                    let reward = "premium car wash";
+                    const age = parseInt(row.Age);
+                    if (row.Gender === 'Female') {
+                        if (age <= 28) reward = "VIP idol concert ticket"; // Gen Z Female
+                        else if (age <= 45) reward = "luxury spa day pass"; // Millennial Female
+                        else reward = "premium supermarket gift card"; // Gen X/Boomer Female
+                    } else {
+                        if (age <= 28) reward = "gaming gear voucher"; // Gen Z Male
+                        else if (age <= 45) reward = "craft beer tasting set"; // Millennial Male
+                        else reward = "golf club discount"; // Gen X/Boomer Male
+                    }
+                    
+                    const pointsGoal = Math.ceil((row.CurrentPoints + 500) / 1000) * 1000;
+                    
+                    const msg = `${greeting} It's been ${row.DaysSinceLastPurchase} days since you last filled up your ${row.PreferredFuel}. Your ${row.CurrentPoints} points are waiting—hit the ${pointsGoal} point milestone this weekend and get a free ${reward}!`;
+                    
+                    row.message = msg;
+                    row.status = 'Drafted';
+                    
+                    if(actionCell) {
+                        actionCell.innerHTML = `<textarea id="msg-${index}" class="w-full text-xs p-2 border border-indigo-200 rounded mb-1 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30" rows="3">${msg}</textarea>`;
+                        statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
+                    }
+                    updateSelection();
+                    resolve();
+                }, Math.random() * 1000 + 500);
+            });
+        }
+
+        function approveSingle(index) {
+            const row = rawData[index];
+            if(row.status !== 'Drafted') return;
+            
+            const txt = document.getElementById(`msg-${index}`);
+            if(txt) row.message = txt.value;
+            
+            row.status = 'Approved';
+            ebitdaTotal += (row.BaselineVolume * MARGIN_PER_LITER);
+            document.getElementById('kpi-ebitda').innerText = `฿${ebitdaTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            const actionCell = document.getElementById(`cell-action-${index}`);
+            const statusCell = document.getElementById(`cell-status-${index}`);
+            
+            if(actionCell) {
+                actionCell.innerHTML = `<div class="text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-100">${row.message}</div>`;
+                statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-emerald-100 text-emerald-700"><i class="fas fa-check"></i> Sent</span>`;
+            }
+            
+            const cb = document.querySelector(`#row-${index} .row-checkbox`);
+            if(cb) { cb.checked = false; cb.disabled = true; }
+        }
+
+        // --- BATCH OPERATIONS ---
+        function toggleAllCheckboxes() {
+            const master = document.getElementById('check-all').checked;
+            document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => {
+                if(cb.closest('tr').style.display !== 'none') cb.checked = master;
+            });
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            const count = checkedBoxes.length;
+            document.getElementById('selected-count').innerText = count;
+            
+            const btnGen = document.getElementById('btn-batch-gen');
+            const btnApprove = document.getElementById('btn-batch-approve');
+            
+            if (count > 0) {
+                btnGen.disabled = false; btnGen.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                let allDrafted = true;
+                checkedBoxes.forEach(cb => { if(rawData[cb.value].status !== 'Drafted') allDrafted = false; });
+                
+                if (allDrafted) {
+                    btnApprove.disabled = false; btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            } else {
+                btnGen.disabled = true; btnGen.classList.add('opacity-50', 'cursor-not-allowed');
+                btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        async function batchGenerate() {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            const btnGen = document.getElementById('btn-batch-gen');
+            
+            btnGen.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Drafting...`;
+            btnGen.disabled = true;
+            
+            const promises = Array.from(checkedBoxes).map(cb => generateSingle(cb.value));
+            await Promise.all(promises);
+            
+            btnGen.innerHTML = `<i class="fas fa-robot mr-1"></i> Auto-Draft Selected`;
+            updateSelection();
+        }
+
+        function batchApprove() {
+            document.querySelectorAll('.row-checkbox:checked').forEach(cb => approveSingle(cb.value));
+            document.getElementById('check-all').checked = false;
+            updateSelection();
+        }
+
+        // --- CHART.JS ---
+        function initChart() {
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            const segments = ['Champions', 'Loyal', 'Cannot Lose Them', 'Potential Loyalist', 'Need Attention', 'At Risk', 'New Customers', 'Promising', 'About To Sleep', 'Hibernating'];
+            const vols = new Array(10).fill(0);
+            
+            rawData.forEach(r => {
+                const idx = segments.indexOf(r.segment);
+                if(idx > -1) vols[idx] += parseInt(r.BaselineVolume);
+            });
+            
+            const bgColors = ['#60A5FA', '#9CA3AF', '#F87171', '#4ADE80', '#FCD34D', '#FDBA74', '#A3E635', '#D6D3D1', '#38BDF8', '#D1D5DB'];
+
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: segments,
+                    datasets: [{ label: 'Total Volume (L)', data: vols, backgroundColor: bgColors, borderRadius: 4 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 45 } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
