@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RedMiles Analytics - RFM Customer 360 & A/B Campaign Studio (v28)</title>
+    <title>RedMiles Analytics - RFM Customer 360 & A/B Campaign Studio (v29)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -388,7 +388,7 @@
                         </div>
                     </div>
 
-                    <!-- STEP 3: GENERATE AI MESSAGES & LAUNCH -->
+                    <!-- STEP 3: GENERATE AI MESSAGES & LAUNCH (HUMAN-IN-THE-LOOP GATE) -->
                     <div class="col-span-3 bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-indigo-200/70">
@@ -398,16 +398,18 @@
                                 </span>
                                 <span class="text-[0.62rem] font-bold text-indigo-600">Pts = Gap&times;5</span>
                             </div>
-                            <p class="text-[0.68rem] text-indigo-800/80 mb-2.5 leading-snug">
-                                Splits Step 1 audience equally across variants, drafts personalized messages with exact bonus points, then launches.
-                            </p>
+                            <!-- Human-in-the-Loop Status Pill -->
+                            <div id="hitl-status-box" class="mb-2.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[0.68rem] text-amber-800 flex items-center justify-between">
+                                <span class="font-semibold"><i class="fas fa-user-check mr-1"></i>Human Review:</span>
+                                <strong id="hitl-progress-text">0 / 0 Checked</strong>
+                            </div>
                         </div>
                         <div class="flex flex-col gap-2">
                             <button onclick="assignAndDraftAB()" id="btn-assign-draft" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5">
                                 <i class="fas fa-wand-magic-sparkles"></i> Generate AI Messages (A/B Split)
                             </button>
-                            <button onclick="launchAndViewResults()" id="btn-launch-results" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5">
-                                <i class="fas fa-paper-plane"></i> Launch &amp; View Results &rarr;
+                            <button onclick="launchAndViewResults()" id="btn-launch-results" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" disabled title="Approve all drafted messages (Checked) before launching">
+                                <i class="fas fa-lock mr-0.5" id="launch-btn-icon"></i> <span id="launch-btn-text">Launch (Check All First)</span>
                             </button>
                         </div>
                     </div>
@@ -886,6 +888,7 @@
             document.getElementById('check-all').checked = false;
             applyC360Filters();
             updateLiveForecast();
+            updateHITLGate();
         }
 
         function clearManualSelection() {
@@ -1041,26 +1044,73 @@
 
                 btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate AI Messages (A/B Split)';
                 btn.disabled = false;
+                updateHITLGate();
             }, 350);
+        }
+
+        function updateHITLGate() {
+            const btnLaunch = document.getElementById('btn-launch-results');
+            const box = document.getElementById('hitl-status-box');
+            const txt = document.getElementById('hitl-progress-text');
+            const icon = document.getElementById('launch-btn-icon');
+            const btnText = document.getElementById('launch-btn-text');
+            if (!btnLaunch || !box || !txt) return;
+
+            if (!isABAssigned) {
+                txt.innerText = 'Not Split Yet';
+                box.className = 'mb-2.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-[0.68rem] text-slate-600 flex items-center justify-between';
+                btnLaunch.disabled = true;
+                btnLaunch.classList.add('opacity-50', 'cursor-not-allowed');
+                icon.className = 'fas fa-lock mr-0.5';
+                btnText.innerText = 'Launch (Check All First)';
+                return;
+            }
+
+            const treatment = rawData.filter(r => r.CampaignVariant !== 'None' && r.CampaignVariant !== 'Control Group');
+            const totalT = treatment.length;
+            const checkedOrSent = treatment.filter(r => r.status === 'Checked' || r.status === 'Sent').length;
+            const allSent = totalT > 0 && treatment.every(r => r.status === 'Sent');
+            const allReady = totalT > 0 && checkedOrSent === totalT;
+
+            if (allSent) {
+                txt.innerText = `${totalT} / ${totalT} Sent`;
+                box.className = 'mb-2.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[0.68rem] text-emerald-800 flex items-center justify-between';
+                btnLaunch.disabled = false;
+                btnLaunch.classList.remove('opacity-50', 'cursor-not-allowed');
+                icon.className = 'fas fa-chart-bar mr-0.5';
+                btnText.innerText = 'View Campaign Results →';
+            } else if (allReady) {
+                txt.innerText = `${checkedOrSent} / ${totalT} Checked ✓`;
+                box.className = 'mb-2.5 px-2.5 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-[0.68rem] text-teal-800 flex items-center justify-between';
+                btnLaunch.disabled = false;
+                btnLaunch.classList.remove('opacity-50', 'cursor-not-allowed');
+                icon.className = 'fas fa-paper-plane mr-0.5';
+                btnText.innerText = 'Launch & View Results →';
+            } else {
+                txt.innerText = `${checkedOrSent} / ${totalT} Checked`;
+                box.className = 'mb-2.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[0.68rem] text-amber-800 flex items-center justify-between';
+                btnLaunch.disabled = true;
+                btnLaunch.classList.add('opacity-50', 'cursor-not-allowed');
+                icon.className = 'fas fa-lock mr-0.5';
+                btnText.innerText = `Launch (${totalT - checkedOrSent} Left to Check)`;
+            }
         }
 
         function launchAndViewResults() {
             if (!isABAssigned) {
-                if (!performStratifiedSplit()) return;
+                alert("Please click 'Generate AI Messages (A/B Split)' first.");
+                return;
             }
-            rawData.forEach(row => {
-                if (row.CampaignVariant !== 'None' && row.CampaignVariant !== 'Control Group') {
-                    if (row.status === 'Pending') {
-                        const res = buildPersonalizedMessage(row);
-                        row.message = res.message;
-                        row.draftMeta = res.meta;
-                    } else if (row.status === 'Drafted') {
-                        const txt = document.getElementById(`msg-${row.id_index}`);
-                        if (txt) row.message = txt.value;
-                    }
-                    row.status = 'Sent';
-                }
+            const treatment = rawData.filter(r => r.CampaignVariant !== 'None' && r.CampaignVariant !== 'Control Group');
+            const unchecked = treatment.filter(r => r.status !== 'Checked' && r.status !== 'Sent');
+            if (unchecked.length > 0) {
+                alert(`Human-in-the-Loop Required: ${unchecked.length} message(s) still need to be reviewed and marked as 'Checked' before launching.`);
+                return;
+            }
+            treatment.forEach(row => {
+                row.status = 'Sent';
             });
+            updateHITLGate();
             document.getElementById('nav-results-badge').classList.remove('hidden');
             switchView('results');
             runSimulationOnCurrentPlan();
@@ -1291,6 +1341,7 @@
                 btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
             }
             updateLiveForecast();
+            updateHITLGate();
         }
 
         function batchApprove() {
