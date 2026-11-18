@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoRewards - RFM Customer 360 Dashboard</title>
+    <title>RedMiles Analytics - RFM Customer 360 & A/B Campaign Studio (v27)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,11 +17,11 @@
         .table-container::-webkit-scrollbar-track { background: #f1f5f9; }
         .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         
-        .rfm-grid { display: grid; grid-template-columns: 80px repeat(5, 1fr); grid-template-rows: repeat(3, 100px) 40px; gap: 8px; }
+        .rfm-grid { display: grid; grid-template-columns: 85px repeat(5, 1fr); grid-template-rows: repeat(3, 100px) 40px; gap: 8px; }
         .rfm-cell { border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .rfm-cell:hover { transform: scale(1.02); box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
         .rfm-title { font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; }
-        .rfm-count { font-size: 1.25rem; font-weight: 800; background: rgba(255,255,255,0.8); border-radius: 9999px; padding: 2px 12px; }
+        .rfm-count { font-size: 1.25rem; font-weight: 800; background: rgba(255,255,255,0.85); color: #1e293b; border-radius: 9999px; padding: 2px 12px; transition: all 0.3s;}
         
         .bg-champions { background-color: #60A5FA; color: white; }
         .bg-loyal { background-color: #9CA3AF; color: white; }
@@ -34,30 +34,37 @@
         .bg-about-sleep { background-color: #38BDF8; color: white; }
         .bg-hibernating { background-color: #D1D5DB; color: #374151; }
         
-        .badge { padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; display: inline-block;}
+        .badge { padding: 4px 8px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;}
+        .logic-card { background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 0.85rem;}
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
-    <!-- Top Navigation -->
+    <!-- Top Navigation (1. Dashboard -> 2. Customer 360 & A/B Setup -> 3. Campaign Results) -->
     <nav class="bg-indigo-900 text-white shadow-md z-20 flex-shrink-0">
         <div class="px-6 py-3 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <div class="bg-white p-1 rounded-md text-indigo-900">
-                    <i class="fas fa-leaf text-xl"></i>
+                <div class="bg-white p-1.5 rounded-md text-rose-700">
+                    <i class="fas fa-layer-group text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight">EcoRewards Analytics</h1>
-                    <p class="text-xs text-indigo-300">AI-Powered RFM Segmentation (AITSPIN PIN 121)</p>
+                    <h1 class="text-xl font-bold tracking-tight">RedMiles Analytics</h1>
+                    <p class="text-xs text-indigo-300">Closed-Loop RFM Targeting, Campaign Studio &amp; Post-Campaign Measurement</p>
                 </div>
             </div>
             
-            <div class="flex gap-4">
+            <div class="flex gap-2 items-center">
                 <button onclick="switchView('dashboard')" id="nav-dashboard" class="px-4 py-2 bg-indigo-800 rounded-lg text-sm font-medium transition hover:bg-indigo-700 ring-2 ring-indigo-400">
-                    <i class="fas fa-chart-pie mr-2"></i> Dashboard Overview
+                    <span class="bg-indigo-600 text-[0.65rem] px-1.5 py-0.5 rounded-full mr-1">1</span><i class="fas fa-chart-pie mr-1"></i> Dashboard
                 </button>
+                <i class="fas fa-chevron-right text-indigo-500 text-xs"></i>
                 <button onclick="switchView('customer360')" id="nav-c360" class="px-4 py-2 bg-transparent rounded-lg text-sm font-medium transition hover:bg-indigo-800">
-                    <i class="fas fa-user-circle mr-2"></i> Customer 360
+                    <span class="bg-indigo-700 text-[0.65rem] px-1.5 py-0.5 rounded-full mr-1">2</span><i class="fas fa-users mr-1"></i> Customer 360 &amp; A/B Setup
+                </button>
+                <i class="fas fa-chevron-right text-indigo-500 text-xs"></i>
+                <button onclick="switchView('results')" id="nav-results" class="px-4 py-2 bg-transparent rounded-lg text-sm font-medium transition hover:bg-indigo-800 relative">
+                    <span class="bg-indigo-700 text-[0.65rem] px-1.5 py-0.5 rounded-full mr-1">3</span><i class="fas fa-chart-bar mr-1"></i> Campaign Results
+                    <span id="nav-results-badge" class="hidden absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full shadow">LIVE</span>
                 </button>
             </div>
         </div>
@@ -69,15 +76,31 @@
         <!-- INITIAL UPLOAD OVERLAY -->
         <div id="upload-overlay" class="absolute inset-0 bg-slate-50 z-50 flex flex-col items-center justify-center fade-in">
             <div class="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center border border-slate-200">
-                <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
-                    <i class="fas fa-file-excel text-4xl"></i>
+                <!-- Idle Upload State -->
+                <div id="upload-idle">
+                    <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-5 text-indigo-600">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6">Upload Raw Data File</h2>
+                    <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg shadow-sm transition block w-full">
+                        <i class="fas fa-cloud-upload-alt mr-2"></i> Select Excel File
+                        <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
+                    </label>
                 </div>
-                <h2 class="text-2xl font-bold mb-2">Upload Data v3 (Personalization)</h2>
-                <p class="text-slate-500 mb-6 text-sm">Upload the Excel file containing Age, Gender, Region, and PreferredFuel to enable hyper-personalized rewards.</p>
-                <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg shadow-sm transition block w-full">
-                    <i class="fas fa-cloud-upload-alt mr-2"></i> Select Excel File
-                    <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden">
-                </label>
+
+                <!-- Loading State -->
+                <div id="upload-loading" class="hidden py-4">
+                    <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-5 text-indigo-600">
+                        <i class="fas fa-circle-notch fa-spin text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Loading &amp; Classifying RFM...</h3>
+                    <p id="upload-loading-sub" class="text-xs text-slate-500 mb-4">Reading customer records and computing segments</p>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div id="upload-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-1000 ease-out" style="width: 15%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -85,7 +108,6 @@
         <!-- VIEW 1: DASHBOARD OVERVIEW                 -->
         <!-- ========================================== -->
         <div id="view-dashboard" class="hidden-view fade-in h-full flex flex-col gap-6">
-            
             <div class="grid grid-cols-4 gap-4 flex-shrink-0">
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -105,474 +127,1170 @@
                     <div>
                         <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1 text-rose-600">High Churn Risk (Target)</p>
                         <p class="text-3xl font-black text-rose-600" id="kpi-target">0</p>
-                        <p class="text-xs font-medium text-rose-400 mt-1">Need Attention + At Risk</p>
+                        <p class="text-xs font-medium text-rose-400 mt-1">Cannot Lose + At Risk + Need Attention</p>
                     </div>
                     <div class="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
                 </div>
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between border-l-4 border-l-emerald-500">
                     <div>
-                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1 text-emerald-600">Est. EBITDA Rescue (฿0.5/L)</p>
-                        <p class="text-3xl font-black text-emerald-600" id="kpi-ebitda">฿0</p>
-                        <p class="text-xs font-medium text-emerald-400 mt-1">Based on targeted segments</p>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1 text-emerald-600">Total Gap Opportunity</p>
+                        <p class="text-3xl font-black text-emerald-600"><span id="kpi-gap-total">0</span> <span class="text-sm font-semibold text-emerald-400">L/mo</span></p>
+                        <p class="text-xs font-medium text-emerald-500 mt-1" id="kpi-gap-sub">&approx; ฿0/mo at ฿0.50/L (All Segments)</p>
                     </div>
-                    <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl"><i class="fas fa-chart-line"></i></div>
+                    <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl"><i class="fas fa-gas-pump"></i></div>
                 </div>
             </div>
 
             <div class="grid grid-cols-3 gap-6 flex-grow min-h-0">
-                <div class="col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h2 class="text-lg font-bold text-slate-800">RFM Segmentation Matrix</h2>
-                            <p class="text-xs text-slate-500">Mapping based on Recency (Days) and Monetary/Frequency (Volume L)</p>
-                        </div>
-                        <button onclick="runPredictive()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                <div class="col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col relative">
+                    <div id="unclassified-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center">
+                        <i class="fas fa-project-diagram text-4xl text-slate-300 mb-4"></i>
+                        <h3 class="text-lg font-bold text-slate-700 mb-2">Raw Data Uploaded</h3>
+                        <p class="text-sm text-slate-500 mb-4">Click Auto-Classify to run RFM segmentation and target sizing.</p>
+                        <button onclick="runPredictive()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm transition flex items-center gap-2">
                             <i class="fas fa-magic"></i> Auto-Classify (AI)
                         </button>
                     </div>
+
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">RFM Segmentation Matrix</h2>
+                            <p class="text-xs text-slate-500">Mapping based on Recency (Days) and Monthly Baseline Volume (L/mo)</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="runPredictive()" class="bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                                <i class="fas fa-sync-alt"></i> Re-Run Logic
+                            </button>
+                            <button onclick="switchView('customer360')" class="bg-indigo-600 text-white hover:bg-indigo-700 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+                                Next: Customer 360 &amp; A/B Setup <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="logic-card shadow-inner">
+                        <strong class="text-indigo-800"><i class="fas fa-info-circle"></i> Target Setting &amp; RFM Logic (AI Engine &mdash; Monthly Per-User Basis)</strong><br>
+                        <div class="grid grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <span class="text-slate-600 font-semibold border-b border-slate-300 text-xs">Segmentation Rules:</span><br>
+                                <ul class="list-disc ml-5 text-slate-600 mt-1 text-xs">
+                                    <li><strong>F/M (Monthly):</strong> High &ge;150 L/mo, Mid 50-149 L/mo, Low &lt;50 L/mo</li>
+                                    <li><strong>Recency:</strong> &le;14d, 15-30d, 31-60d, &gt;60d</li>
+                                    <li class="text-rose-600 font-medium">Edge Case Guardrail: High Vol + &gt;30d &rarr; Cannot Lose Them</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <span class="text-slate-600 font-semibold border-b border-slate-300 text-xs">Monthly Target Setting (Uplift Gap):</span><br>
+                                <ul class="list-disc ml-5 text-slate-600 mt-1 text-xs">
+                                    <li><strong>Champions:</strong> +10% | <strong>Loyal / Potential:</strong> +20%</li>
+                                    <li><strong>Cannot Lose / At Risk / Need Attn:</strong> +30% | <strong>Others:</strong> +50%</li>
+                                    <li class="text-emerald-700 font-semibold"><strong>Uplift Margin:</strong> Gap Liters &times; ฿0.50/L</li>
+                                    <li class="text-indigo-700 font-semibold"><strong>Reward Points:</strong> Gap Liters &times; 5 Points</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex-grow flex items-center justify-center bg-slate-50 rounded-xl p-4 border border-slate-100">
                         <div class="rfm-grid w-full h-full relative">
                             <div class="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-bold text-slate-500 flex items-center gap-2 whitespace-nowrap">Freq x Monetary <i class="fas fa-arrow-right"></i></div>
                             <div class="absolute -bottom-8 right-12 text-sm font-bold text-slate-500 flex items-center gap-2"><i class="fas fa-arrow-left"></i> Recency</div>
 
-                            <!-- Row 1 -->
-                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">High</div>
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase text-right">High<br>(&ge;150 L/mo)</div>
                             <div class="rfm-cell bg-cannot-lose col-span-2" onclick="filterTable('Cannot Lose Them')"><div class="rfm-title">Cannot Lose Them</div><div class="rfm-count" id="count-cannot-lose">0</div></div>
                             <div class="rfm-cell bg-loyal col-span-2" onclick="filterTable('Loyal')"><div class="rfm-title">Loyal</div><div class="rfm-count" id="count-loyal">0</div></div>
                             <div class="rfm-cell bg-champions" onclick="filterTable('Champions')"><div class="rfm-title">Champions</div><div class="rfm-count" id="count-champions">0</div></div>
 
-                            <!-- Row 2 -->
-                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">Mid</div>
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase text-right">Mid<br>(50-149 L)</div>
                             <div class="rfm-cell bg-at-risk col-span-2" onclick="filterTable('At Risk')"><div class="rfm-title">At Risk</div><div class="rfm-count" id="count-at-risk">0</div></div>
                             <div class="rfm-cell bg-need-attention" onclick="filterTable('Need Attention')"><div class="rfm-title">Need Attention</div><div class="rfm-count" id="count-need-attention">0</div></div>
                             <div class="rfm-cell bg-potential col-span-2" onclick="filterTable('Potential Loyalist')"><div class="rfm-title">Potential Loyalist</div><div class="rfm-count" id="count-potential">0</div></div>
 
-                            <!-- Row 3 -->
-                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase">Low</div>
+                            <div class="flex items-center justify-end pr-2 text-xs font-bold text-slate-400 uppercase text-right">Low<br>(&lt;50 L/mo)</div>
                             <div class="rfm-cell bg-hibernating col-span-2" onclick="filterTable('Hibernating')"><div class="rfm-title">Hibernating</div><div class="rfm-count" id="count-hibernating">0</div></div>
                             <div class="rfm-cell bg-about-sleep" onclick="filterTable('About To Sleep')"><div class="rfm-title">About To Sleep</div><div class="rfm-count" id="count-about-sleep">0</div></div>
                             <div class="rfm-cell bg-promising" onclick="filterTable('Promising')"><div class="rfm-title">Promising</div><div class="rfm-count" id="count-promising">0</div></div>
                             <div class="rfm-cell bg-new" onclick="filterTable('New Customers')"><div class="rfm-title">New Customers</div><div class="rfm-count" id="count-new">0</div></div>
                             
                             <div></div>
-                            <div class="text-xs text-slate-400 font-bold text-center mt-2">> 60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2"></div>
-                            <div class="text-xs text-slate-400 font-bold text-center mt-2">30-60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2">< 30 days</div>
-                            <div class="text-xs text-slate-400 font-bold text-center mt-2">< 7 days</div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">&gt; 60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2"></div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">31-60 days</div><div class="text-xs text-slate-400 font-bold text-center mt-2">15-30 days</div>
+                            <div class="text-xs text-slate-400 font-bold text-center mt-2">&le; 14 days</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-                    <h2 class="text-lg font-bold text-slate-800 mb-2">Volume Distribution</h2>
-                    <p class="text-xs text-slate-500 mb-4">Baseline Liters across segments</p>
-                    <div class="flex-grow relative w-full h-full min-h-[200px]"><canvas id="volumeChart"></canvas></div>
-                    <div class="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                        <h3 class="text-sm font-bold text-indigo-900 mb-1"><i class="fas fa-lightbulb text-amber-500 mr-1"></i> AI Recommendation</h3>
-                        <p class="text-xs text-indigo-700 leading-relaxed">Focus immediate generative campaigns on <strong>"Cannot Lose Them"</strong> and <strong>"At Risk"</strong> segments. They represent high baseline volume with high churn probability.</p>
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800 mb-1">Segment Analysis</h2>
+                            <select id="chart-metric" onchange="updateChart()" class="text-xs border border-slate-300 rounded px-2 py-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <option value="N">Headcount (N)</option>
+                                <option value="BaselineVolume_L">Baseline Volume (L/mo)</option>
+                                <option value="TargetVolume">AI Target Volume (L/mo)</option>
+                                <option value="GapVolume">Gap Volume (L/mo)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex-grow relative w-full h-full min-h-[220px]"><canvas id="volumeChart"></canvas></div>
+                    <div class="mt-3 p-3 bg-rose-50 rounded-lg border border-rose-100">
+                        <p class="text-xs text-rose-800 leading-relaxed"><i class="fas fa-lightbulb text-amber-500 mr-1"></i> <strong>Pareto Insight:</strong> Switch from <em>Headcount (N)</em> to <em>Gap Volume (L/mo)</em> to see how small high-value segments like <strong>Cannot Lose Them</strong>, <strong>At Risk</strong>, and <strong>Need Attention</strong> dominate total uplift opportunity.</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ========================================== -->
-        <!-- VIEW 2: CUSTOMER 360 & GEN AI ACTION       -->
+        <!-- VIEW 2: CUSTOMER 360 & A/B CAMPAIGN STUDIO -->
         <!-- ========================================== -->
-        <div id="view-customer360" class="hidden-view fade-in h-full flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div id="view-customer360" class="hidden-view fade-in h-full flex flex-col gap-4 overflow-hidden">
             
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
-                <div class="flex items-center gap-4">
-                    <h2 class="text-lg font-bold text-slate-800"><i class="fas fa-list mr-2 text-slate-400"></i> Customer 360 Review</h2>
-                    <div class="relative">
-                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                        <input type="text" id="search-input" onkeyup="searchTable()" placeholder="Search ID..." class="pl-9 pr-4 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48">
+            <!-- TOP PANEL: UNIFIED 3-STEP FLOW (1. Select Audience & Filters -> 2. Configure Test -> 3. Generate & Launch) -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex-shrink-0">
+                <div class="grid grid-cols-12 gap-4 items-stretch">
+
+                    <!-- STEP 1: SELECT AUDIENCE & FILTERS (ALL FILTERS + SELECTION CONSOLIDATED HERE) -->
+                    <div class="col-span-5 bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-200">
+                                <span class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-rose-600 text-white text-[0.65rem] inline-flex items-center justify-center font-black">1</span>
+                                    Select Audience &amp; Filters
+                                </span>
+                                <span class="text-[0.65rem] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full" id="forecast-split-n">0 Treat / 0 Ctrl</span>
+                            </div>
+
+                            <!-- Row A: Segment + Tier + Car Type -->
+                            <div class="grid grid-cols-12 gap-2 mb-2">
+                                <div class="col-span-5">
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">RFM Segment</label>
+                                    <select id="setup-audience" onchange="onStep1FilterChange()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="Cannot Lose Them,At Risk,Need Attention" selected>🎯 Recommended Targets (3)</option>
+                                        <option value="Cannot Lose Them,At Risk">🔥 High Churn (Cannot Lose + At Risk)</option>
+                                        <option value="Cannot Lose Them">🚨 Cannot Lose Them Only</option>
+                                        <option value="Champions,Loyal">💎 Core Loyalty (Champions + Loyal)</option>
+                                        <option value="ALL">🌐 All 10 Segments (100%)</option>
+                                        <option disabled>──────────</option>
+                                        <option value="At Risk">At Risk Only</option>
+                                        <option value="Need Attention">Need Attention Only</option>
+                                        <option value="Champions">Champions Only</option>
+                                        <option value="Loyal">Loyal Only</option>
+                                        <option value="Potential Loyalist">Potential Loyalist Only</option>
+                                        <option value="New Customers">New Customers Only</option>
+                                        <option value="Promising">Promising Only</option>
+                                        <option value="About To Sleep">About To Sleep Only</option>
+                                        <option value="Hibernating">Hibernating Only</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-3">
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Tier</label>
+                                    <select id="setup-tier" onchange="onStep1FilterChange()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="All">All Tiers</option>
+                                        <option value="RedMiles">RedMiles</option>
+                                        <option value="RedMiles Pro">RedMiles Pro</option>
+                                        <option value="RedMiles Gold">RedMiles Gold</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-4">
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Car Type</label>
+                                    <select id="setup-cartype" onchange="onStep1FilterChange()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="All">All Car Types</option>
+                                        <option value="Motorcycle">Motorcycle</option>
+                                        <option value="Sedan">Sedan</option>
+                                        <option value="SUV / Pickup">SUV / Pickup</option>
+                                        <option value="Commercial Van">Commercial Van</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Row B: Search + Control Holdout + Selection Scope -->
+                            <div class="grid grid-cols-12 gap-2 items-end">
+                                <div class="col-span-5">
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Search Customer</label>
+                                    <input type="text" id="search-input" onkeyup="onStep1FilterChange()" placeholder="ID, Region, Interest..." class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div class="col-span-3">
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Holdout Ctrl</label>
+                                    <select id="sim-control" onchange="updateLiveForecast()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="5">5% Ctrl</option>
+                                        <option value="10" selected>10% Ctrl</option>
+                                        <option value="15">15% Ctrl</option>
+                                        <option value="20">20% Ctrl</option>
+                                        <option value="30">30% Ctrl</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-4">
+                                    <div class="bg-white border border-indigo-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-[0.68rem]">
+                                        <span class="text-slate-500 font-semibold">Scope:</span>
+                                        <strong id="step1-scope-label" class="text-indigo-700">All Filtered (0)</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-2 pt-1.5 border-t border-slate-200/70 flex justify-between items-center text-[0.68rem] text-slate-500">
+                            <span>Treatment Gap: <strong class="text-slate-700" id="forecast-total-gap">0 L/mo</strong></span>
+                            <span>Max Bonus Points: <strong class="text-indigo-700" id="forecast-max-pts">0 pts</strong></span>
+                        </div>
                     </div>
-                    <select id="filter-segment" onchange="filterTableBySelect()" class="py-1.5 pl-3 pr-8 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="All">All Segments</option>
-                        <option value="Target">🎯 Recommended Targets Only</option>
-                        <hr>
-                        <option value="Cannot Lose Them">Cannot Lose Them</option>
-                        <option value="At Risk">At Risk</option>
-                        <option value="Need Attention">Need Attention</option>
-                        <option value="Champions">Champions</option>
-                        <option value="Loyal">Loyal</option>
-                        <option value="Potential Loyalist">Potential Loyalist</option>
-                        <option value="New Customers">New Customers</option>
-                        <option value="Promising">Promising</option>
-                        <option value="About To Sleep">About To Sleep</option>
-                        <option value="Hibernating">Hibernating</option>
-                    </select>
+
+                    <!-- STEP 2: CONFIGURE A/B TEST -->
+                    <div class="col-span-4 bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-200">
+                                <span class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[0.65rem] inline-flex items-center justify-center font-black">2</span>
+                                    Configure A/B Test
+                                </span>
+                                <span class="text-[0.65rem] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full" id="forecast-variants-count">6 Variants</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Channels</label>
+                                    <select id="setup-channels" onchange="updateLiveForecast()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="App Push,SMS" selected>📱 App vs ✉️ SMS</option>
+                                        <option value="App Push,SMS,LINE OA">📱 App / SMS / LINE</option>
+                                        <option value="App Push,LINE OA">📱 App vs 💬 LINE</option>
+                                        <option value="SMS,LINE OA">✉️ SMS vs 💬 LINE</option>
+                                        <option value="App Push">📱 App Only</option>
+                                        <option value="SMS">✉️ SMS Only</option>
+                                        <option value="LINE OA">💬 LINE Only</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Message Concepts</label>
+                                    <select id="setup-concepts" onchange="updateLiveForecast()" class="w-full text-xs font-semibold text-slate-700 border border-slate-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="Point Boost,Tangible Reward,FOMO (Loss)" selected>🧪 Point / Reward / FOMO</option>
+                                        <option value="Tangible Reward,FOMO (Loss)">🎁 Reward vs 🔥 FOMO</option>
+                                        <option value="Point Boost,Tangible Reward">⭐ Point vs 🎁 Reward</option>
+                                        <option value="Point Boost,FOMO (Loss)">⭐ Point vs 🔥 FOMO</option>
+                                        <option value="Point Boost">⭐ Point Boost Only</option>
+                                        <option value="Tangible Reward">🎁 Reward Only</option>
+                                        <option value="FOMO (Loss)">🔥 FOMO Only</option>
+                                        <option value="AUTO">🤖 AI Auto-Select</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5">
+                                    <label class="text-[0.6rem] font-bold text-indigo-600 uppercase">Estimated Hit Rate (Reach Target Gap)</label>
+                                    <span class="text-xs font-black text-indigo-700" id="sim-rate-val">20%</span>
+                                </div>
+                                <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5">
+                                    <span class="text-[0.6rem] text-slate-400 font-bold">5%</span>
+                                    <input type="range" id="sim-rate" min="5" max="50" value="20" step="1" class="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer" oninput="document.getElementById('sim-rate-val').innerText = this.value + '%'; updateLiveForecast();">
+                                    <span class="text-[0.6rem] text-slate-400 font-bold">50%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-1.5 border-t border-slate-200/70 flex justify-between items-center text-[0.7rem]">
+                            <span class="text-slate-500">Est. Inc. Vol: <strong class="text-indigo-700" id="forecast-vol">+0 L/mo</strong></span>
+                            <span class="text-slate-500">Est. Uplift (Gap&times;฿0.50): <strong class="text-emerald-600 text-xs" id="forecast-ebitda">+฿0/mo</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: GENERATE AI MESSAGES & LAUNCH -->
+                    <div class="col-span-3 bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-indigo-200/70">
+                                <span class="text-xs font-extrabold text-indigo-950 flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[0.65rem] inline-flex items-center justify-center font-black">3</span>
+                                    Generate &amp; Launch
+                                </span>
+                                <span class="text-[0.62rem] font-bold text-indigo-600">Pts = Gap&times;5</span>
+                            </div>
+                            <p class="text-[0.68rem] text-indigo-800/80 mb-2.5 leading-snug">
+                                Splits Step 1 audience equally across variants, drafts personalized messages with exact bonus points, then launches.
+                            </p>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <button onclick="assignAndDraftAB()" id="btn-assign-draft" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5">
+                                <i class="fas fa-wand-magic-sparkles"></i> Generate AI Messages (A/B Split)
+                            </button>
+                            <button onclick="launchAndViewResults()" id="btn-launch-results" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5">
+                                <i class="fas fa-paper-plane"></i> Launch &amp; View Results &rarr;
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
-                
-                <div class="flex gap-2 items-center">
-                    <span class="text-sm text-slate-500 mr-2">Selected: <span id="selected-count" class="font-bold text-slate-800">0</span></span>
-                    <!-- Bulk Actions Buttons -->
-                    <button id="btn-batch-gen" onclick="batchGenerate()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-1.5 rounded-md text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>
-                        <i class="fas fa-robot mr-1"></i> Auto-Draft Selected
+            </div>
+
+            <!-- BOTTOM PANEL: CUSTOMER 360 AUDIENCE TABLE (CLEAN HEADER, NO DUPLICATE FILTERS) -->
+            <div class="flex-grow flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
+                <!-- Slim Table Header Bar -->
+                <div class="px-4 py-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between items-center gap-2 flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-700">
+                            <i class="fas fa-table text-indigo-500 mr-1.5"></i>Customer 360 Audience Preview
+                        </span>
+                        <span class="text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
+                            Showing <strong id="c360-showing-count" class="text-indigo-700">0</strong> users
+                        </span>
+                        <select id="filter-ab-group" onchange="applyC360Filters()" class="py-1 pl-2 pr-6 border border-indigo-200 rounded-md text-xs font-semibold text-indigo-900 bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="ALL_USERS">View: All Matched Users</option>
+                            <option value="AB_ALL">View: Active A/B Only</option>
+                            <option value="AB_TREATMENT">View: Treatment Only</option>
+                            <option value="AB_CONTROL">View: Control Holdout Only</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex gap-2 items-center">
+                        <span class="text-xs text-slate-500">Checked: <strong id="selected-count" class="text-slate-800">0</strong></span>
+                        <button onclick="clearManualSelection()" id="btn-clear-sel" class="hidden text-xs text-slate-500 hover:text-rose-600 px-2 py-1 rounded transition">
+                            <i class="fas fa-times mr-1"></i>Clear
+                        </button>
+                        <button id="btn-batch-approve" onclick="batchApprove()" class="bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition opacity-50 cursor-not-allowed" disabled>
+                            <i class="fas fa-check-double mr-1"></i> Approve Checked
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="flex-grow overflow-auto table-container">
+                    <table class="w-full text-left border-collapse" id="main-table">
+                        <thead class="bg-slate-100 sticky top-0 z-10 shadow-sm">
+                            <tr class="text-slate-600 text-[0.7rem] uppercase tracking-wider font-bold">
+                                <th class="p-2.5 border-b border-slate-200 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleAllCheckboxes()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" title="Select all visible rows for Step 1 targeting"></th>
+                                <th class="p-2.5 border-b border-slate-200 w-52">Cust ID / Persona</th>
+                                <th class="p-2.5 border-b border-slate-200 w-24 text-right">Hist. Base<br><span class="text-[0.6rem] text-slate-400 font-normal">(Avg L/mo)</span></th>
+                                <th class="p-2.5 border-b border-slate-200 w-28 text-right">Target &amp; Gap<br><span class="text-[0.6rem] text-slate-400 font-normal">(Pts = Gap&times;5)</span></th>
+                                <th class="p-2.5 border-b border-slate-200 min-w-[130px] text-center">RFM Segment</th>
+                                <th class="p-2.5 border-b border-slate-200 min-w-[140px] text-center">A/B Assignment</th>
+                                <th class="p-2.5 border-b border-slate-200 min-w-[360px]">GenAI Personalized Campaign (Human Review)</th>
+                                <th class="p-2.5 border-b border-slate-200 w-24 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="text-slate-700 text-sm divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: POST-CAMPAIGN RESULTS (100% ENG)   -->
+        <!-- ========================================== -->
+        <div id="view-results" class="hidden-view fade-in h-full flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6">
+            
+            <!-- Header + Actions -->
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-3 pb-3 border-b border-slate-200 flex-shrink-0">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-chart-bar text-indigo-600 mr-2"></i>Campaign Results Summary</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Measuring incremental margin uplift vs. Holdout Control Group at ฿0.50/L gross margin.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="switchView('customer360')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fas fa-arrow-left"></i> Back to Setup
                     </button>
-                    <button id="btn-batch-approve" onclick="batchApprove()" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-1.5 rounded-md text-sm font-semibold shadow-sm transition opacity-50 cursor-not-allowed" disabled>
-                        <i class="fas fa-check-double mr-1"></i> Approve & Send All
+                    <button onclick="runSimulationOnCurrentPlan()" id="btn-resimulate" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+                        <i class="fas fa-redo"></i> Re-Simulate (<span id="resim-rate-label">20%</span> Hit Rate)
                     </button>
                 </div>
             </div>
 
-            <div class="flex-grow overflow-auto table-container">
-                <table class="w-full text-left border-collapse" id="main-table">
-                    <thead class="bg-slate-100 sticky top-0 z-10 shadow-sm">
-                        <tr class="text-slate-600 text-[0.7rem] uppercase tracking-wider font-bold">
-                            <th class="p-3 border-b border-slate-200 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleAllCheckboxes()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"></th>
-                            <th class="p-3 border-b border-slate-200 w-40">Cust ID / Demo</th>
-                            <th class="p-3 border-b border-slate-200 w-20 text-right">Vol(L)</th>
-                            <th class="p-3 border-b border-slate-200 w-24 text-right">Recency(D)</th>
-                            <th class="p-3 border-b border-slate-200 w-20 text-right">Points</th>
-                            <th class="p-3 border-b border-slate-200 min-w-[140px]">AI Segment</th>
-                            <th class="p-3 border-b border-slate-200 min-w-[320px]">GenAI Personalized Campaign (Human Review)</th>
-                            <th class="p-3 border-b border-slate-200 w-24 text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body" class="text-slate-700 text-sm divide-y divide-slate-100">
-                        <!-- Rows injected by JS -->
-                    </tbody>
-                </table>
+            <!-- Filter Bar -->
+            <div class="flex gap-3 mb-4 items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex-wrap flex-shrink-0">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide mr-1"><i class="fas fa-filter mr-1"></i> Filter Results:</span>
+                <select id="ab-segment" onchange="if(isSimulated) renderABTestResults()" class="text-xs font-semibold text-indigo-900 border border-indigo-200 rounded-md px-2.5 py-1.5 focus:ring-indigo-500 bg-white min-w-[155px]">
+                    <option value="All">All Segments</option>
+                    <option value="Cannot Lose Them">Cannot Lose Them</option>
+                    <option value="At Risk">At Risk</option>
+                    <option value="Need Attention">Need Attention</option>
+                    <option value="Champions">Champions</option>
+                    <option value="Loyal">Loyal</option>
+                    <option value="Potential Loyalist">Potential Loyalist</option>
+                    <option value="New Customers">New Customers</option>
+                    <option value="Promising">Promising</option>
+                    <option value="About To Sleep">About To Sleep</option>
+                    <option value="Hibernating">Hibernating</option>
+                </select>
+                <select id="ab-tier" onchange="if(isSimulated) renderABTestResults()" class="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 focus:ring-indigo-500 bg-white min-w-[130px]">
+                    <option value="All">All Tiers</option>
+                    <option value="RedMiles">RedMiles</option>
+                    <option value="RedMiles Pro">RedMiles Pro</option>
+                    <option value="RedMiles Gold">RedMiles Gold</option>
+                </select>
+                <select id="ab-cartype" onchange="if(isSimulated) renderABTestResults()" class="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 focus:ring-indigo-500 bg-white min-w-[130px]">
+                    <option value="All">All Car Types</option>
+                    <option value="Motorcycle">Motorcycle</option>
+                    <option value="Sedan">Sedan</option>
+                    <option value="SUV / Pickup">SUV / Pickup</option>
+                    <option value="Commercial Van">Commercial Van</option>
+                </select>
+                <button onclick="resetResultFilters()" class="text-xs text-slate-500 hover:text-indigo-600 px-2 py-1 rounded transition">
+                    <i class="fas fa-undo mr-1"></i>Reset
+                </button>
+                <span id="ab-launch-badge" class="ml-auto text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full font-semibold">
+                    <i class="fas fa-balance-scale mr-1"></i> Equalized Stratified Split
+                </span>
+            </div>
+
+            <!-- Executive Takeaway Banner + 3 KPIs -->
+            <div id="ab-results-kpi" class="space-y-3 mb-4 opacity-40 pointer-events-none transition-opacity duration-500 flex-shrink-0">
+                <div class="bg-gradient-to-r from-emerald-50 to-indigo-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <p class="text-sm text-slate-700" id="ab-executive-summary">
+                        Click <strong>"Launch &amp; View Results"</strong> in Customer 360 to generate the campaign performance summary.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-white border border-indigo-100 p-3.5 rounded-xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-[0.7rem] font-bold uppercase">Total Incremental Volume</p>
+                            <p class="text-2xl font-black text-indigo-600 mt-0.5" id="ab-kpi-vol">- L</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="fas fa-gas-pump"></i></div>
+                    </div>
+                    <div class="bg-white border border-emerald-100 p-3.5 rounded-xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-[0.7rem] font-bold uppercase">Total Monthly Profit Uplift</p>
+                            <p class="text-2xl font-black text-emerald-600 mt-0.5" id="ab-kpi-margin">-</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center"><i class="fas fa-coins"></i></div>
+                    </div>
+                    <div class="bg-white border border-amber-200 p-3.5 rounded-xl shadow-sm flex items-center justify-between">
+                        <div class="min-w-0 pr-2">
+                            <p class="text-slate-500 text-[0.7rem] font-bold uppercase">Best Variant (Profit / User)</p>
+                            <p class="text-lg font-black text-amber-600 mt-0.5 truncate" id="ab-kpi-best">Pending</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center flex-shrink-0"><i class="fas fa-crown"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrollable Content: Chart + Variant Table + Segment Breakdown -->
+            <div class="flex-grow overflow-auto space-y-5 pr-1 table-container">
+                
+                <div class="grid grid-cols-12 gap-5">
+                    <div class="col-span-5 bg-slate-50/70 border border-slate-200 rounded-xl p-4 flex flex-col">
+                        <div class="mb-2">
+                            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide"><i class="fas fa-chart-column text-indigo-500 mr-1.5"></i>Profit per User (฿/user) by Variant</h3>
+                            <p class="text-[0.68rem] text-slate-400">Net incremental profit per customer after subtracting Control Group baseline.</p>
+                        </div>
+                        <div class="flex-grow relative min-h-[210px]">
+                            <canvas id="abVariantChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="col-span-7 flex flex-col">
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"><i class="fas fa-vials text-indigo-500 mr-1.5"></i>1. Variant Performance Ranking (Sorted by Profit/User)</h3>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white flex-grow">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-100">
+                                    <tr class="text-slate-600 text-[0.65rem] uppercase tracking-wider font-bold">
+                                        <th class="p-2.5 border-b border-slate-200">Variant</th>
+                                        <th class="p-2.5 border-b border-slate-200 text-right">Users</th>
+                                        <th class="p-2.5 border-b border-slate-200 text-right">Before &rarr; After<br><span class="text-slate-400 font-normal">(L/user/mo)</span></th>
+                                        <th class="p-2.5 border-b border-slate-200 text-right">Net Uplift<br><span class="text-slate-400 font-normal">(vs Control)</span></th>
+                                        <th class="p-2.5 border-b border-slate-200 text-right font-bold text-amber-600">Profit / User</th>
+                                        <th class="p-2.5 border-b border-slate-200 text-right font-bold text-emerald-600">Total Profit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ab-table-body" class="text-slate-700 text-xs divide-y divide-slate-100">
+                                    <tr><td colspan="6" class="text-center p-10 text-slate-400">
+                                        Go to <strong>Tab 2 (Customer 360 &amp; A/B Setup)</strong> and click <strong>"Launch &amp; View Results &rarr;"</strong>.
+                                    </td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide"><i class="fas fa-sitemap text-emerald-500 mr-1.5"></i>2. Breakdown by Customer Segment (Winning Variant per Segment)</h3>
+                        <span class="text-[0.68rem] text-slate-400"><i class="fas fa-mouse-pointer mr-1"></i>Click any segment row to filter the chart and ranking table above</span>
+                    </div>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-100">
+                                <tr class="text-slate-600 text-[0.65rem] uppercase tracking-wider font-bold">
+                                    <th class="p-2.5 border-b border-slate-200">Customer Segment</th>
+                                    <th class="p-2.5 border-b border-slate-200 text-right">Users (Treat / Ctrl)</th>
+                                    <th class="p-2.5 border-b border-slate-200 text-right">Avg Net Uplift</th>
+                                    <th class="p-2.5 border-b border-slate-200 text-right font-bold text-indigo-600">Total Inc. Vol</th>
+                                    <th class="p-2.5 border-b border-slate-200 text-right font-bold text-emerald-600">Total Profit</th>
+                                    <th class="p-2.5 border-b border-slate-200 text-center font-bold text-amber-700">Winning Variant for Segment 🏆</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ab-segment-breakdown-body" class="text-slate-700 text-xs divide-y divide-slate-100">
+                                <tr><td colspan="6" class="text-center p-8 text-slate-400">Segment breakdown will appear after launching the campaign.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <p class="text-[0.68rem] text-slate-400 italic">* Note: Net Uplift &amp; Profit are computed from exact unrounded averages before formatting to 1 decimal place (&plusmn;0.1 display rounding is normal).</p>
             </div>
         </div>
         
     </main>
 
     <script>
-        const GEMINI_API_KEY = "YOUR_API_KEY"; // Placeholder for API key
-        const MARGIN_PER_LITER = 0.50; // Updated margin to 0.5 THB/L
-
+        const MARGIN_PER_LITER = 0.50;
+        const ALL_SEGMENTS = ['Champions', 'Loyal', 'Cannot Lose Them', 'Potential Loyalist', 'Need Attention', 'At Risk', 'New Customers', 'Promising', 'About To Sleep', 'Hibernating'];
         let rawData = [];
         let myChart = null;
-        let ebitdaTotal = 0;
-        let isDataLoaded = false;
+        let abChart = null;
+        let isClassified = false;
+        let isABAssigned = false;
+        let isSimulated = false;
+        let activeVariants = []; 
+        let currentTargetAudienceIds = new Set();
         
+        function getCarIcon(carType) {
+            if (!carType) return 'fa-car text-slate-400';
+            const ct = carType.toLowerCase();
+            if (ct.includes('motor')) return 'fa-motorcycle text-orange-500';
+            if (ct.includes('suv') || ct.includes('pickup')) return 'fa-truck-pickup text-indigo-500';
+            if (ct.includes('van') || ct.includes('comm')) return 'fa-shuttle-van text-emerald-600';
+            return 'fa-car text-sky-500';
+        }
+
         function switchView(viewName) {
-            if (!isDataLoaded) { alert("Please upload Excel file first."); return; }
+            if (rawData.length === 0) { alert("Please upload an Excel file first."); return; }
             document.getElementById('upload-overlay').classList.add('hidden-view');
             document.getElementById('view-dashboard').classList.add('hidden-view');
             document.getElementById('view-customer360').classList.add('hidden-view');
+            document.getElementById('view-results').classList.add('hidden-view');
             document.getElementById('nav-dashboard').classList.remove('bg-indigo-800', 'ring-2', 'ring-indigo-400');
             document.getElementById('nav-c360').classList.remove('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+            document.getElementById('nav-results').classList.remove('bg-indigo-800', 'ring-2', 'ring-indigo-400');
             
             if(viewName === 'dashboard') {
                 document.getElementById('view-dashboard').classList.remove('hidden-view');
                 document.getElementById('nav-dashboard').classList.add('bg-indigo-800', 'ring-2', 'ring-indigo-400');
-                if(myChart) myChart.update();
-            } else {
+                if(isClassified) updateChart();
+            } else if (viewName === 'customer360') {
+                if(!isClassified) { alert("Please click 'Auto-Classify (AI)' on the Dashboard first."); switchView('dashboard'); return;}
                 document.getElementById('view-customer360').classList.remove('hidden-view');
                 document.getElementById('nav-c360').classList.add('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+                applyC360Filters();
+                updateLiveForecast();
+            } else if (viewName === 'results') {
+                if(!isClassified) { alert("Please classify data first."); switchView('dashboard'); return;}
+                document.getElementById('view-results').classList.remove('hidden-view');
+                document.getElementById('nav-results').classList.add('bg-indigo-800', 'ring-2', 'ring-indigo-400');
+                document.getElementById('resim-rate-label').innerText = document.getElementById('sim-rate').value + '%';
+                if(isSimulated) renderABTestResults();
             }
         }
 
         document.getElementById('excel-file').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if(!file) return;
+
+            // Show loading state immediately
+            document.getElementById('upload-idle').classList.add('hidden');
+            document.getElementById('upload-loading').classList.remove('hidden');
+            const bar = document.getElementById('upload-progress-bar');
+            bar.style.width = '20%';
+
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
+            reader.onload = function(ev) {
+                const data = new Uint8Array(ev.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                isDataLoaded = true;
-                processData();
-                switchView('dashboard');
+                
+                isClassified = false;
+                isABAssigned = false;
+                isSimulated = false;
+                currentTargetAudienceIds = new Set();
+                document.getElementById('nav-results-badge').classList.add('hidden');
+                document.getElementById('ab-results-kpi').classList.add('opacity-40', 'pointer-events-none');
+                
+                rawData.forEach((row, i) => {
+                    row.id_index = i;
+                    row.status = 'Pending';
+                    row.segment = 'Unclassified';
+                    row.segmentClass = 'bg-slate-200 text-slate-700';
+                    row.isTarget = false;
+                    row.draftMeta = null;
+                    row.CampaignVariant = 'None';
+                    row.abChannel = null;
+                    row.abConcept = null;
+                });
+
+                document.getElementById('kpi-total').innerText = rawData.length.toLocaleString();
+                document.getElementById('upload-loading-sub').innerText = `Loaded ${rawData.length.toLocaleString()} records — running RFM segmentation...`;
+                setTimeout(() => { bar.style.width = '100%'; }, 50);
+
+                // Brief smooth loading before entering RFM Dashboard automatically
+                setTimeout(() => {
+                    document.getElementById('upload-overlay').classList.add('hidden-view');
+                    runPredictive();
+                    switchView('dashboard');
+                }, 1000);
             };
             reader.readAsArrayBuffer(file);
         });
 
-        function processData() {
-            let totalVolume = 0;
-            let totalDays = 0;
+        // 1. Process Data & Calculate Target Liters + Exact Bonus Points (Gap * 5)
+        function runPredictive() {
+            document.getElementById('unclassified-overlay').classList.add('hidden-view');
+            let totalVolume = 0, totalDays = 0;
             
-            rawData.forEach((row, i) => {
-                row.id_index = i;
-                row.status = 'Pending';
-                row.message = '';
-                
+            rawData.forEach(row => {
                 const r = parseInt(row.DaysSinceLastPurchase) || 0;
-                const v = parseInt(row.BaselineVolume) || 0;
+                const v = parseInt(row.BaselineVolume_L) || 0;
                 
                 totalVolume += v;
                 totalDays += r;
                 
-                row.segment = 'Unclassified';
-                row.segmentClass = 'bg-slate-200 text-slate-700';
-                row.isTarget = false;
-                
-                // Assign Segment logic
                 if (v >= 150) { 
-                    if (r <= 14) { row.segment = 'Champions'; row.segmentClass = 'bg-blue-100 text-blue-700 border border-blue-300'; }
-                    else if (r <= 30) { row.segment = 'Loyal'; row.segmentClass = 'bg-slate-200 text-slate-700 border border-slate-300'; }
+                    if (r <= 14) { row.segment = 'Champions'; row.segmentClass = 'bg-blue-100 text-blue-700'; }
+                    else if (r <= 30) { row.segment = 'Loyal'; row.segmentClass = 'bg-slate-200 text-slate-700'; }
                     else { row.segment = 'Cannot Lose Them'; row.segmentClass = 'bg-rose-100 text-rose-700 border border-rose-300 font-bold'; row.isTarget = true; }
-                } 
-                else if (v >= 50) { 
-                    if (r <= 14) { row.segment = 'Potential Loyalist'; row.segmentClass = 'bg-emerald-100 text-emerald-700 border border-emerald-300'; }
+                } else if (v >= 50) { 
+                    if (r <= 14) { row.segment = 'Potential Loyalist'; row.segmentClass = 'bg-emerald-100 text-emerald-700'; }
                     else if (r <= 30) { row.segment = 'Need Attention'; row.segmentClass = 'bg-amber-100 text-amber-700 border border-amber-300'; row.isTarget = true; }
                     else { row.segment = 'At Risk'; row.segmentClass = 'bg-orange-100 text-orange-700 border border-orange-300 font-bold'; row.isTarget = true; }
+                } else { 
+                    if (r <= 14) { row.segment = 'New Customers'; row.segmentClass = 'bg-lime-100 text-lime-700'; }
+                    else if (r <= 30) { row.segment = 'Promising'; row.segmentClass = 'bg-stone-200 text-stone-700'; }
+                    else if (r <= 60) { row.segment = 'About To Sleep'; row.segmentClass = 'bg-sky-100 text-sky-700'; }
+                    else { row.segment = 'Hibernating'; row.segmentClass = 'bg-gray-200 text-gray-700'; }
                 }
-                else { 
-                    if (r <= 14) { row.segment = 'New Customers'; row.segmentClass = 'bg-lime-100 text-lime-700 border border-lime-300'; }
-                    else if (r <= 30) { row.segment = 'Promising'; row.segmentClass = 'bg-stone-200 text-stone-700 border border-stone-300'; }
-                    else if (r <= 60) { row.segment = 'About To Sleep'; row.segmentClass = 'bg-sky-100 text-sky-700 border border-sky-300'; }
-                    else { row.segment = 'Hibernating'; row.segmentClass = 'bg-gray-200 text-gray-700 border border-gray-300'; }
-                }
+
+                let multiplier = 1.0;
+                if(row.segment === 'Champions') multiplier = 1.10;
+                else if(row.segment === 'Loyal' || row.segment === 'Potential Loyalist') multiplier = 1.20;
+                else if(row.segment === 'Cannot Lose Them' || row.segment === 'At Risk' || row.segment === 'Need Attention') multiplier = 1.30;
+                else multiplier = 1.50;
+
+                row.TargetVolume = Math.ceil(v * multiplier);
+                row.GapVolume = row.TargetVolume - v;
+                row.BonusPoints = row.GapVolume * 5;
+                
+                const age = parseInt(row.Age);
+                if (age <= 28) row.AgeGen = 'GenZ';
+                else if (age <= 45) row.AgeGen = 'GenY';
+                else row.AgeGen = 'GenX';
             });
 
+            isClassified = true;
             updateDashboardKPIs(totalDays);
-            renderTable();
-            initChart();
-        }
-
-        function runPredictive() {
+            updateChart();
+            
             document.querySelectorAll('.rfm-count').forEach(el => {
                 el.classList.add('animate-pulse');
                 setTimeout(() => el.classList.remove('animate-pulse'), 1000);
             });
-            processData();
         }
 
         function updateDashboardKPIs(totalDays) {
-            document.getElementById('kpi-total').innerText = rawData.length;
             document.getElementById('kpi-recency').innerText = Math.round(totalDays / rawData.length);
             
             const counts = {};
             let targetCount = 0;
+            let totalAllGap = 0;
             
             rawData.forEach(row => {
                 counts[row.segment] = (counts[row.segment] || 0) + 1;
-                if(row.isTarget) targetCount++;
+                totalAllGap += row.GapVolume;
+                if(row.isTarget) {
+                    targetCount++;
+                }
             });
             
-            const idMapping = {
-                'Champions': 'count-champions',
-                'Loyal': 'count-loyal',
-                'Cannot Lose Them': 'count-cannot-lose',
-                'Potential Loyalist': 'count-potential',
-                'Need Attention': 'count-need-attention',
-                'At Risk': 'count-at-risk',
-                'New Customers': 'count-new',
-                'Promising': 'count-promising',
-                'About To Sleep': 'count-about-sleep',
-                'Hibernating': 'count-hibernating'
-            };
+            const idMap = { 'Champions': 'count-champions', 'Loyal': 'count-loyal', 'Cannot Lose Them': 'count-cannot-lose', 'Potential Loyalist': 'count-potential', 'Need Attention': 'count-need-attention', 'At Risk': 'count-at-risk', 'New Customers': 'count-new', 'Promising': 'count-promising', 'About To Sleep': 'count-about-sleep', 'Hibernating': 'count-hibernating' };
 
-            for (const [key, value] of Object.entries(counts)) {
-                const id = idMapping[key];
-                if (id) {
-                    const el = document.getElementById(id);
-                    if(el) el.innerText = value;
-                }
+            for (const [key, val] of Object.entries(counts)) {
+                if (idMap[key]) document.getElementById(idMap[key]).innerText = val.toLocaleString();
             }
-            document.getElementById('kpi-target').innerText = targetCount;
+            
+            document.getElementById('kpi-target').innerText = targetCount.toLocaleString();
+            document.getElementById('kpi-gap-total').innerText = totalAllGap.toLocaleString();
+            document.getElementById('kpi-gap-sub').innerText = `≈ ฿${(totalAllGap * MARGIN_PER_LITER).toLocaleString(undefined, {maximumFractionDigits: 2})}/mo at ฿0.50/L (All Segments)`;
         }
 
-        function renderTable(filterSegment = 'All') {
+        function updateChart() {
+            if(!isClassified) return;
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            const metric = document.getElementById('chart-metric').value;
+            
+            const data = new Array(10).fill(0);
+            rawData.forEach(r => {
+                const idx = ALL_SEGMENTS.indexOf(r.segment);
+                if(idx > -1) {
+                    if (metric === 'N') data[idx] += 1;
+                    else if (metric === 'BaselineVolume_L') data[idx] += r.BaselineVolume_L;
+                    else if (metric === 'TargetVolume') data[idx] += r.TargetVolume;
+                    else if (metric === 'GapVolume') data[idx] += r.GapVolume;
+                }
+            });
+            
+            const bgColors = ['#60A5FA', '#9CA3AF', '#F87171', '#4ADE80', '#FCD34D', '#FDBA74', '#A3E635', '#D6D3D1', '#38BDF8', '#D1D5DB'];
+
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: ALL_SEGMENTS, datasets: [{ label: metric, data: data, backgroundColor: bgColors, borderRadius: 4 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true }, x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 45 } } }
+                }
+            });
+        }
+
+        // ==========================================
+        // STEP 1 UNIFIED FILTERING & TARGETING ENGINE
+        // ==========================================
+        function getStep1FilteredUsers() {
+            const audVal = document.getElementById('setup-audience').value;
+            const selectedSegments = (audVal === 'ALL') ? ALL_SEGMENTS : audVal.split(',');
+            const filterTier = document.getElementById('setup-tier').value;
+            const filterCar = document.getElementById('setup-cartype').value;
+            const searchStr = document.getElementById('search-input').value.trim().toUpperCase();
+
+            let matched = rawData.filter(r => selectedSegments.includes(r.segment));
+            if (filterTier !== 'All') matched = matched.filter(r => r.LatestTier === filterTier);
+            if (filterCar !== 'All') matched = matched.filter(r => r.CarType === filterCar);
+            if (searchStr !== '') {
+                matched = matched.filter(r =>
+                    String(r.CustomerID || '').toUpperCase().includes(searchStr) ||
+                    String(r.CarType || '').toUpperCase().includes(searchStr) ||
+                    String(r.Region || '').toUpperCase().includes(searchStr) ||
+                    String(r.Interest || '').toUpperCase().includes(searchStr) ||
+                    String(r.CampaignVariant || '').toUpperCase().includes(searchStr)
+                );
+            }
+            return matched;
+        }
+
+        // Returns manually checked rows if any are checked; otherwise all Step 1 filtered rows
+        function getStep1ActiveTargetUsers() {
+            const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+            if (checkedBoxes.length > 0) {
+                return checkedBoxes.map(cb => rawData[parseInt(cb.value)]).filter(Boolean);
+            }
+            return getStep1FilteredUsers();
+        }
+
+        function getSetupConfig() {
+            const chanVal = document.getElementById('setup-channels').value;
+            const channels = chanVal ? chanVal.split(',') : [];
+
+            const concVal = document.getElementById('setup-concepts').value;
+            const concepts = (concVal === 'AUTO') ? [] : (concVal ? concVal.split(',') : []);
+
+            const controlPct = parseInt(document.getElementById('sim-control').value) / 100.0;
+            const successRate = parseInt(document.getElementById('sim-rate').value) / 100.0;
+            return { channels, concepts, controlPct, successRate };
+        }
+
+        function onStep1FilterChange() {
+            document.getElementById('check-all').checked = false;
+            applyC360Filters();
+            updateLiveForecast();
+        }
+
+        function clearManualSelection() {
+            document.getElementById('check-all').checked = false;
+            document.querySelectorAll('.row-checkbox:checked').forEach(cb => cb.checked = false);
+            updateSelection();
+        }
+
+        function updateLiveForecast() {
+            if (!isClassified) return;
+            const { channels, concepts, controlPct, successRate } = getSetupConfig();
+
+            let numVariants = 0;
+            if (channels.length > 0 && concepts.length > 0) numVariants = channels.length * concepts.length;
+            else numVariants = channels.length + concepts.length;
+
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const audience = getStep1ActiveTargetUsers();
+            const totalN = audience.length;
+            const ctrlN = totalN > 0 ? Math.max(1, Math.round(totalN * controlPct)) : 0;
+            const treatN = Math.max(0, totalN - ctrlN);
+
+            const totalGap = audience.reduce((s, r) => s + r.GapVolume, 0);
+            const treatGap = totalN > 0 ? Math.round(totalGap * (treatN / totalN)) : 0;
+            const expectedIncVol = treatGap * successRate;
+            const expectedEBITDA = expectedIncVol * MARGIN_PER_LITER;
+            const maxPts = treatGap * 5;
+
+            document.getElementById('step1-scope-label').innerText = checkedCount > 0
+                ? `Checked (${checkedCount})`
+                : `All Filtered (${totalN})`;
+
+            document.getElementById('forecast-variants-count').innerText = `${numVariants} Variant${numVariants !== 1 ? 's' : ''}`;
+            document.getElementById('forecast-total-gap').innerText = `${treatGap.toLocaleString()} L/mo`;
+            document.getElementById('forecast-max-pts').innerText = `${maxPts.toLocaleString()} pts`;
+            document.getElementById('forecast-vol').innerText = `+${Math.round(expectedIncVol).toLocaleString()} L/mo`;
+            document.getElementById('forecast-ebitda').innerText = `+฿${expectedEBITDA.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}/mo`;
+            document.getElementById('forecast-split-n').innerText = `${treatN.toLocaleString()} Treat / ${ctrlN.toLocaleString()} Ctrl`;
+        }
+
+        // ==========================================
+        // EQUALIZED STRATIFIED SPLIT + DRAFT + LAUNCH
+        // ==========================================
+        function performStratifiedSplit() {
+            const testAudience = getStep1ActiveTargetUsers();
+            if(testAudience.length === 0) { alert("No customers matched in Step 1. Please adjust your audience filters."); return false; }
+
+            const { channels, concepts, controlPct } = getSetupConfig();
+            if (channels.length === 0 && concepts.length === 0) { alert("Please select at least one Channel or Concept in Step 2."); return false; }
+
+            activeVariants = [];
+            const variantMeta = {};
+            if(channels.length > 0 && concepts.length > 0) {
+                channels.forEach(ch => concepts.forEach(co => {
+                    const name = `${ch} - ${co}`;
+                    activeVariants.push(name);
+                    variantMeta[name] = { channel: ch, concept: co };
+                }));
+            } else if (channels.length > 0) {
+                channels.forEach(ch => {
+                    activeVariants.push(ch);
+                    variantMeta[ch] = { channel: ch, concept: 'AUTO' };
+                });
+            } else {
+                concepts.forEach(co => {
+                    activeVariants.push(co);
+                    variantMeta[co] = { channel: 'AUTO', concept: co };
+                });
+            }
+
+            currentTargetAudienceIds = new Set(testAudience.map(r => r.id_index));
+
+            // Reset prior experiment tags
+            rawData.forEach(r => {
+                r.CampaignVariant = 'None';
+                r.abChannel = null;
+                r.abConcept = null;
+                r.ActualVolume_PostCampaign = 0;
+                r.status = 'Pending';
+                r.message = '';
+                r.draftMeta = null;
+            });
+
+            // Group selected audience by segment for stratified split
+            const groupedBySegment = {};
+            testAudience.forEach(r => {
+                if(!groupedBySegment[r.segment]) groupedBySegment[r.segment] = [];
+                groupedBySegment[r.segment].push(r);
+            });
+
+            const segKeys = Object.keys(groupedBySegment);
+            const totalN = testAudience.length;
+            const targetTotalControl = totalN > 0 ? Math.max(1, Math.round(totalN * controlPct)) : 0;
+
+            const rawControls = {};
+            const floorControls = {};
+            let sumFloor = 0;
+            segKeys.forEach(s => {
+                rawControls[s] = groupedBySegment[s].length * controlPct;
+                floorControls[s] = Math.floor(rawControls[s]);
+                sumFloor += floorControls[s];
+            });
+
+            let remainder = targetTotalControl - sumFloor;
+            const sortedByRem = [...segKeys].sort((a, b) => (rawControls[b] - floorControls[b]) - (rawControls[a] - floorControls[a]));
+            for (let i = 0; i < remainder && i < sortedByRem.length; i++) {
+                floorControls[sortedByRem[i]] += 1;
+            }
+
+            let globalVarIndex = 0;
+            segKeys.forEach(seg => {
+                const group = groupedBySegment[seg];
+                for (let i = group.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [group[i], group[j]] = [group[j], group[i]];
+                }
+                const controlCount = floorControls[seg];
+                group.forEach((row, i) => {
+                    if (i < controlCount) {
+                        row.CampaignVariant = 'Control Group';
+                        row.status = 'Holdout';
+                    } else {
+                        const vName = activeVariants[globalVarIndex % activeVariants.length];
+                        row.CampaignVariant = vName;
+                        row.abChannel = variantMeta[vName].channel;
+                        row.abConcept = variantMeta[vName].concept;
+                        globalVarIndex++;
+                    }
+                });
+            });
+
+            isABAssigned = true;
+            return true;
+        }
+
+        function assignAndDraftAB() {
+            if (!performStratifiedSplit()) return;
+            const btn = document.getElementById('btn-assign-draft');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                rawData.forEach(row => {
+                    if (row.CampaignVariant !== 'None' && row.CampaignVariant !== 'Control Group') {
+                        const res = buildPersonalizedMessage(row);
+                        row.message = res.message;
+                        row.draftMeta = res.meta;
+                        row.status = 'Drafted';
+                    }
+                });
+                document.getElementById('filter-ab-group').value = 'AB_ALL';
+                applyC360Filters();
+
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate AI Messages (A/B Split)';
+                btn.disabled = false;
+            }, 350);
+        }
+
+        function launchAndViewResults() {
+            if (!isABAssigned) {
+                if (!performStratifiedSplit()) return;
+            }
+            rawData.forEach(row => {
+                if (row.CampaignVariant !== 'None' && row.CampaignVariant !== 'Control Group') {
+                    if (row.status === 'Pending') {
+                        const res = buildPersonalizedMessage(row);
+                        row.message = res.message;
+                        row.draftMeta = res.meta;
+                    } else if (row.status === 'Drafted') {
+                        const txt = document.getElementById(`msg-${row.id_index}`);
+                        if (txt) row.message = txt.value;
+                    }
+                    row.status = 'Sent';
+                }
+            });
+            document.getElementById('nav-results-badge').classList.remove('hidden');
+            switchView('results');
+            runSimulationOnCurrentPlan();
+        }
+
+        // 3. Customer 360 Table Logic
+        function filterTable(segmentName) {
+            document.getElementById('setup-audience').value = segmentName;
+            document.getElementById('setup-tier').value = 'All';
+            document.getElementById('setup-cartype').value = 'All';
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-ab-group').value = 'ALL_USERS';
+            switchView('customer360');
+        }
+
+        function buildDraftBadgesHtml(meta) {
+            if (!meta) return '';
+            const chColor = meta.channel === 'App Push' ? 'bg-blue-100 text-blue-700' : (meta.channel === 'LINE OA' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800');
+            const coColor = meta.concept === 'FOMO (Loss)' ? 'bg-rose-100 text-rose-700' : (meta.concept === 'Tangible Reward' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700');
+            const tag = meta.source === 'AB'
+                ? '<span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-semibold"><i class="fas fa-flask mr-0.5"></i>A/B Linked</span>'
+                : '<span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold"><i class="fas fa-robot mr-0.5"></i>AI Pick</span>';
+            return `<div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                <span class="text-[0.62rem] px-2 py-0.5 rounded-full font-bold ${chColor}">${meta.channel}</span>
+                <span class="text-[0.62rem] px-2 py-0.5 rounded-full font-bold ${coColor}">${meta.concept}</span>
+                ${tag}
+            </div>`;
+        }
+
+        function applyC360Filters() {
+            let displayData = getStep1FilteredUsers();
+            const filterAB = document.getElementById('filter-ab-group').value;
+
+            if (filterAB === 'AB_ALL') displayData = displayData.filter(r => r.CampaignVariant && r.CampaignVariant !== 'None');
+            else if (filterAB === 'AB_TREATMENT') displayData = displayData.filter(r => r.CampaignVariant && r.CampaignVariant !== 'None' && r.CampaignVariant !== 'Control Group');
+            else if (filterAB === 'AB_CONTROL') displayData = displayData.filter(r => r.CampaignVariant === 'Control Group');
+
+            document.getElementById('c360-showing-count').innerText = displayData.length.toLocaleString();
+            document.getElementById('check-all').checked = false;
+            renderFilteredRows(displayData);
+        }
+
+        function renderFilteredRows(displayData) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
-            
-            let displayData = rawData;
-            if(filterSegment === 'Target') {
-                displayData = rawData.filter(r => r.isTarget);
-            } else if (filterSegment !== 'All') {
-                displayData = rawData.filter(r => r.segment === filterSegment);
+
+            if (displayData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center p-12 text-slate-400 font-medium">No customers match the selected filters in Step 1.</td></tr>';
+                updateSelection();
+                return;
             }
-            
+
+            const frag = document.createDocumentFragment();
             displayData.forEach(row => {
-                const index = row.id_index;
+                const idx = row.id_index;
+                const isControl = (row.CampaignVariant === 'Control Group');
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition " + (row.isTarget ? "bg-orange-50/30" : "");
-                tr.id = `row-${index}`;
+                tr.className = "hover:bg-slate-50 transition " + (isControl ? "bg-slate-100/70" : (row.isTarget ? "bg-orange-50/15" : ""));
+                tr.id = `row-${idx}`;
                 
-                const disableCheck = row.status === 'Approved' ? 'disabled' : '';
-                const cbHtml = row.isTarget ? 
-                    `<input type="checkbox" class="row-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" value="${index}" onchange="updateSelection()" ${disableCheck}>` : 
-                    `<i class="fas fa-minus text-slate-300 text-xs"></i>`;
+                const disableCheck = (row.status === 'Checked' || row.status === 'Sent' || isControl) ? 'disabled' : '';
+                const cbHtml = isControl
+                    ? `<i class="fas fa-shield-alt text-slate-400" title="Control Group (Holdout)"></i>`
+                    : `<input type="checkbox" class="row-checkbox rounded text-indigo-600 focus:ring-indigo-500" value="${idx}" onchange="updateSelection()" ${disableCheck}>`;
+
+                let abCellHtml = '<span class="text-[0.65rem] text-slate-400">Not Assigned</span>';
+                if (isControl) abCellHtml = '<span class="badge bg-slate-200 text-slate-700 border border-slate-300"><i class="fas fa-shield-alt mr-1"></i>Control</span>';
+                else if (row.CampaignVariant && row.CampaignVariant !== 'None') abCellHtml = `<span class="badge bg-indigo-100 text-indigo-800 border border-indigo-200">${row.CampaignVariant}</span>`;
 
                 let actionHtml = '';
-                if (row.status === 'Approved') {
-                    actionHtml = `<div class="text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-100">${row.message}</div>`;
+                if (isControl) {
+                    actionHtml = `<div class="text-xs text-slate-500 bg-slate-200/70 p-2.5 rounded border border-slate-300 italic"><i class="fas fa-ban mr-1"></i> Holdout Control Group &mdash; No campaign message sent.</div>`;
+                } else if (row.status === 'Sent') {
+                    actionHtml = `${buildDraftBadgesHtml(row.draftMeta)}<div class="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded border border-emerald-100 whitespace-pre-line">${row.message}</div>`;
+                } else if (row.status === 'Checked') {
+                    actionHtml = `${buildDraftBadgesHtml(row.draftMeta)}<div class="text-xs text-teal-800 bg-teal-50 p-2.5 rounded border border-teal-200 whitespace-pre-line">${row.message}</div>`;
                 } else if (row.status === 'Drafted') {
-                    actionHtml = `
-                        <textarea id="msg-${index}" class="w-full text-xs p-2 border border-indigo-200 rounded mb-1 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30" rows="3">${row.message}</textarea>
-                    `;
-                } else if (row.isTarget) {
-                    actionHtml = `<button onclick="generateSingle(${index})" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-3 py-1 rounded transition w-full"><i class="fas fa-sparkles mr-1"></i> GenAI Draft</button>`;
+                    actionHtml = `${buildDraftBadgesHtml(row.draftMeta)}<textarea id="msg-${idx}" class="w-full text-xs p-2.5 border border-indigo-200 rounded-md focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30 resize-y leading-relaxed" rows="4">${row.message}</textarea>`;
                 } else {
-                    actionHtml = `<span class="text-xs text-slate-400 italic">N/A (Not Target)</span>`;
+                    actionHtml = `<button onclick="generateSingle(${idx})" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded transition w-full font-medium"><i class="fas fa-sparkles mr-1"></i> GenAI Draft</button>`;
                 }
                 
                 let statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-slate-100 text-slate-500">Pending</span>`;
-                if(row.status === 'Drafted') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
-                if(row.status === 'Approved') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-emerald-100 text-emerald-700"><i class="fas fa-check"></i> Sent</span>`;
+                if (isControl) statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-slate-200 text-slate-600">Holdout</span>`;
+                else if(row.status === 'Drafted') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
+                else if(row.status === 'Checked') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-teal-100 text-teal-700"><i class="fas fa-check"></i> Checked</span>`;
+                else if(row.status === 'Sent') statusBadge = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-emerald-100 text-emerald-700"><i class="fas fa-paper-plane"></i> Sent</span>`;
+
+                const thbEquiv = (row.BaselineVolume_L * row.FuelPrice_THB).toLocaleString(undefined, {maximumFractionDigits:0});
+                const carIcon = getCarIcon(row.CarType);
 
                 tr.innerHTML = `
-                    <td class="p-3 border-b border-slate-100 text-center">${cbHtml}</td>
-                    <td class="p-3 border-b border-slate-100 font-medium font-mono text-xs">
-                        <div class="text-slate-800 font-bold">${row.CustomerID || '-'}</div>
-                        <div class="text-[0.65rem] text-slate-500 mt-1">
-                            <i class="fas ${row.Gender === 'Female' ? 'fa-venus text-pink-400' : 'fa-mars text-blue-400'}"></i> ${row.Gender || 'N/A'}, Age ${row.Age || '?'}
+                    <td class="p-2.5 border-b border-slate-100 text-center">${cbHtml}</td>
+                    <td class="p-2.5 border-b border-slate-100 font-medium font-mono text-xs">
+                        <div class="text-slate-800 font-bold">${row.CustomerID || '-'} <span class="bg-slate-200 text-slate-600 px-1 rounded text-[0.55rem] uppercase ml-1">${row.LatestTier}</span></div>
+                        <div class="text-[0.65rem] text-slate-600 mt-0.5 font-sans">
+                            <i class="fas ${carIcon} mr-1"></i> ${row.CarType || 'N/A'} (${row.PreferredFuel || '-'})
                         </div>
-                        <div class="text-[0.65rem] text-slate-500 mt-0.5">
-                            <i class="fas fa-map-marker-alt text-rose-400"></i> ${row.Region || 'N/A'} • <i class="fas fa-gas-pump text-amber-500"></i> ${row.PreferredFuel || 'N/A'}
+                        <div class="text-[0.65rem] text-slate-500 mt-0.5 font-sans">
+                            <i class="fas ${row.Gender === 'Female' ? 'fa-venus text-pink-400' : 'fa-mars text-blue-400'}"></i> ${row.Gender || 'N/A'}, Age ${row.Age || '?'} &bull; <i class="fas fa-map-marker-alt text-rose-400"></i> ${row.Region || 'N/A'}
                         </div>
                     </td>
-                    <td class="p-3 border-b border-slate-100 text-right ${row.isTarget ? 'font-bold' : ''}">${row.BaselineVolume}</td>
-                    <td class="p-3 border-b border-slate-100 text-right ${row.DaysSinceLastPurchase > 30 ? 'text-rose-600 font-bold' : ''}">${row.DaysSinceLastPurchase}</td>
-                    <td class="p-3 border-b border-slate-100 text-right text-xs">${row.CurrentPoints}</td>
-                    <td class="p-3 border-b border-slate-100"><span class="badge inline-block ${row.segmentClass}">${row.segment}</span></td>
-                    <td class="p-3 border-b border-slate-100" id="cell-action-${index}">${actionHtml}</td>
-                    <td class="p-3 border-b border-slate-100 text-center" id="cell-status-${index}">${statusBadge}</td>
+                    <td class="p-2.5 border-b border-slate-100 text-right">
+                        <div class="font-bold text-slate-700">${row.BaselineVolume_L} L</div>
+                        <div class="text-[0.6rem] text-slate-400">~฿${thbEquiv}/mo</div>
+                    </td>
+                    <td class="p-2.5 border-b border-slate-100 text-right">
+                        <div class="font-bold text-indigo-600">${row.TargetVolume} L</div>
+                        <div class="text-[0.65rem] text-rose-500 font-bold">+${row.GapVolume} L</div>
+                        <div class="text-[0.6rem] text-amber-600 font-semibold">+${(row.BonusPoints || 0).toLocaleString()} pts</div>
+                    </td>
+                    <td class="p-2.5 border-b border-slate-100 text-center"><span class="badge ${row.segmentClass}">${row.segment}</span></td>
+                    <td class="p-2.5 border-b border-slate-100 text-center">${abCellHtml}</td>
+                    <td class="p-2.5 border-b border-slate-100" id="cell-action-${idx}">${actionHtml}</td>
+                    <td class="p-2.5 border-b border-slate-100 text-center" id="cell-status-${idx}">${statusBadge}</td>
                 `;
-                tbody.appendChild(tr);
+                frag.appendChild(tr);
             });
+            tbody.appendChild(frag);
             updateSelection();
         }
 
-        function filterTable(segmentName) {
-            document.getElementById('filter-segment').value = segmentName;
-            switchView('customer360');
-            renderTable(segmentName);
-        }
+        // 100% English Personalized Message Generator with EXACT Bonus Points (Gap * 5) matching!
+        function buildPersonalizedMessage(row) {
+            const hasAB = (row.CampaignVariant && row.CampaignVariant !== 'None' && row.CampaignVariant !== 'Control Group');
+            let chosenChannel = (hasAB && row.abChannel && row.abChannel !== 'AUTO') ? row.abChannel : 'AUTO';
+            let chosenConcept = (hasAB && row.abConcept && row.abConcept !== 'AUTO') ? row.abConcept : 'AUTO';
+            let source = hasAB ? 'AB' : 'AUTO';
 
-        function filterTableBySelect() {
-            renderTable(document.getElementById('filter-segment').value);
-            document.getElementById('check-all').checked = false;
-            updateSelection();
-        }
-
-        function searchTable() {
-            const input = document.getElementById("search-input").value.toUpperCase();
-            const trs = document.getElementById("main-table").getElementsByTagName("tr");
-            
-            for (let i = 1; i < trs.length; i++) {
-                let td = trs[i].getElementsByTagName("td")[1];
-                if (td) {
-                    if ((td.textContent || td.innerText).toUpperCase().indexOf(input) > -1) {
-                        trs[i].style.display = "";
-                    } else {
-                        trs[i].style.display = "none";
-                    }
-                }
+            if (chosenChannel === 'AUTO') {
+                if (row.CarType === 'Commercial Van' || row.Age >= 48) chosenChannel = 'SMS';
+                else if (row.LatestTier === 'RedMiles Gold' || row.segment === 'Cannot Lose Them') chosenChannel = 'LINE OA';
+                else chosenChannel = 'App Push';
             }
+            if (chosenConcept === 'AUTO') {
+                if (row.segment === 'Cannot Lose Them' || row.segment === 'At Risk') chosenConcept = 'FOMO (Loss)';
+                else if (row.segment === 'Champions' || row.segment === 'Loyal') chosenConcept = 'Tangible Reward';
+                else chosenConcept = 'Point Boost';
+            }
+
+            let greeting = "Hi there!";
+            if(row.Region === 'North') greeting = "Hello from the cool North!";
+            if(row.Region === 'South') greeting = "Hello from the sunny South!";
+            if(row.Region === 'Northeast') greeting = "Warm greetings from the Northeast!";
+
+            const bonusPoints = row.GapVolume * 5;
+            const currentPts = parseInt(row.CurrentPoints) || 0;
+            const newTotalPts = currentPts + bonusPoints;
+            const priceInThb = (row.TargetVolume * row.FuelPrice_THB).toLocaleString(undefined, {maximumFractionDigits:0});
+            const vehicleText = row.CarType ? `your ${row.CarType}` : 'your vehicle';
+
+            let conceptBody = "";
+            if (chosenConcept === 'Point Boost') {
+                conceptBody = `Start this month's mission! Fuel ${vehicleText} with ${row.PreferredFuel} to reach ${row.TargetVolume}L (~฿${priceInThb}) this month and earn +${bonusPoints.toLocaleString()} Bonus Points (boosting your balance from ${currentPts.toLocaleString()} to ${newTotalPts.toLocaleString()} pts)!`;
+            } else if (chosenConcept === 'Tangible Reward') {
+                conceptBody = `Your monthly mission is here! Fuel ${vehicleText} with ${row.PreferredFuel} to reach ${row.TargetVolume}L (~฿${priceInThb}) this month to earn +${bonusPoints.toLocaleString()} Bonus Points and unlock a FREE ${row.Interest}!`;
+            } else {
+                conceptBody = `Don't let your ${currentPts.toLocaleString()} pts & ${row.LatestTier} perks slip away! It's been ${row.DaysSinceLastPurchase} days—fuel ${vehicleText} with ${row.PreferredFuel} to reach ${row.TargetVolume}L (~฿${priceInThb}) this month or miss out on +${bonusPoints.toLocaleString()} Bonus Points and your exclusive ${row.Interest}!`;
+            }
+
+            let finalMsg = "";
+            if (chosenChannel === 'SMS') finalMsg = `[RedMiles] ${greeting} ${conceptBody} Activate now: redmiles.link/${row.CustomerID}`;
+            else if (chosenChannel === 'LINE OA') finalMsg = `${greeting} ⛽✨\n${conceptBody}\n\n👉 Tap "Claim Mission" in the RedMiles LINE Rich Menu before Sunday!`;
+            else finalMsg = `🔔 ${greeting} Exclusive ${row.LatestTier} Mission!\n${conceptBody}`;
+
+            return { message: finalMsg, meta: { channel: chosenChannel, concept: chosenConcept, source: source } };
         }
 
-        // --- GEN AI SIMULATION ---
-        function generateSingle(index) {
+        function generateSingle(index, instant = false) {
             return new Promise(resolve => {
                 const row = rawData[index];
-                if(row.status === 'Approved') { resolve(); return; }
-                
+                if(row.status === 'Checked' || row.status === 'Sent' || row.CampaignVariant === 'Control Group') { resolve(); return; }
                 const actionCell = document.getElementById(`cell-action-${index}`);
-                const statusCell = document.getElementById(`cell-status-${index}`);
-                
-                if(actionCell) actionCell.innerHTML = `<span class="text-xs text-indigo-500 animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i> Calling LLM API...</span>`;
+                if(!instant && actionCell) actionCell.innerHTML = `<span class="text-xs text-indigo-500 animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i> Drafting message...</span>`;
                 
                 setTimeout(() => {
-                    // Context-aware Greeting
-                    let greeting = "Hello";
-                    if(row.Region === 'North') greeting = "Sawaddeeเจ้า! Hope you're keeping cool.";
-                    if(row.Region === 'South') greeting = "Sawasdee from the sunny South!";
-                    if(row.Region === 'Northeast') greeting = "Sabai dee bo? We miss seeing you.";
-                    
-                    // Hyper-personalized Reward Logic
-                    let reward = "premium car wash";
-                    const age = parseInt(row.Age);
-                    if (row.Gender === 'Female') {
-                        if (age <= 28) reward = "VIP idol concert ticket"; // Gen Z Female
-                        else if (age <= 45) reward = "luxury spa day pass"; // Millennial Female
-                        else reward = "premium supermarket gift card"; // Gen X/Boomer Female
-                    } else {
-                        if (age <= 28) reward = "gaming gear voucher"; // Gen Z Male
-                        else if (age <= 45) reward = "craft beer tasting set"; // Millennial Male
-                        else reward = "golf club discount"; // Gen X/Boomer Male
-                    }
-                    
-                    const pointsGoal = Math.ceil((row.CurrentPoints + 500) / 1000) * 1000;
-                    
-                    const msg = `${greeting} It's been ${row.DaysSinceLastPurchase} days since you last filled up your ${row.PreferredFuel}. Your ${row.CurrentPoints} points are waiting—hit the ${pointsGoal} point milestone this weekend and get a free ${reward}!`;
-                    
-                    row.message = msg;
+                    const res = buildPersonalizedMessage(row);
+                    row.message = res.message;
+                    row.draftMeta = res.meta;
                     row.status = 'Drafted';
-                    
                     if(actionCell) {
-                        actionCell.innerHTML = `<textarea id="msg-${index}" class="w-full text-xs p-2 border border-indigo-200 rounded mb-1 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30" rows="3">${msg}</textarea>`;
-                        statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
+                        actionCell.innerHTML = `${buildDraftBadgesHtml(row.draftMeta)}<textarea id="msg-${index}" class="w-full text-xs p-2.5 border border-indigo-200 rounded-md focus:ring-1 focus:ring-indigo-500 bg-indigo-50/30 resize-y leading-relaxed" rows="4">${row.message}</textarea>`;
+                        const statusCell = document.getElementById(`cell-status-${index}`);
+                        if(statusCell) statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-indigo-100 text-indigo-700">Drafted</span>`;
                     }
-                    updateSelection();
+                    if(!instant) updateSelection();
                     resolve();
-                }, Math.random() * 1000 + 500);
+                }, instant ? 0 : 250);
             });
         }
 
         function approveSingle(index) {
             const row = rawData[index];
             if(row.status !== 'Drafted') return;
-            
             const txt = document.getElementById(`msg-${index}`);
             if(txt) row.message = txt.value;
-            
-            row.status = 'Approved';
-            ebitdaTotal += (row.BaselineVolume * MARGIN_PER_LITER);
-            document.getElementById('kpi-ebitda').innerText = `฿${ebitdaTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            
+            row.status = 'Checked';
             const actionCell = document.getElementById(`cell-action-${index}`);
-            const statusCell = document.getElementById(`cell-status-${index}`);
-            
             if(actionCell) {
-                actionCell.innerHTML = `<div class="text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-100">${row.message}</div>`;
-                statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-emerald-100 text-emerald-700"><i class="fas fa-check"></i> Sent</span>`;
+                actionCell.innerHTML = `${buildDraftBadgesHtml(row.draftMeta)}<div class="text-xs text-teal-800 bg-teal-50 p-2.5 rounded border border-teal-200 whitespace-pre-line">${row.message}</div>`;
+                const statusCell = document.getElementById(`cell-status-${index}`);
+                if(statusCell) statusCell.innerHTML = `<span class="px-2 py-1 rounded text-[0.65rem] font-bold bg-teal-100 text-teal-700"><i class="fas fa-check"></i> Checked</span>`;
             }
-            
             const cb = document.querySelector(`#row-${index} .row-checkbox`);
             if(cb) { cb.checked = false; cb.disabled = true; }
         }
 
-        // --- BATCH OPERATIONS ---
         function toggleAllCheckboxes() {
             const master = document.getElementById('check-all').checked;
-            document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => {
-                if(cb.closest('tr').style.display !== 'none') cb.checked = master;
-            });
+            document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => { cb.checked = master; });
             updateSelection();
         }
 
         function updateSelection() {
-            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-            const count = checkedBoxes.length;
-            document.getElementById('selected-count').innerText = count;
-            
-            const btnGen = document.getElementById('btn-batch-gen');
+            const checked = document.querySelectorAll('.row-checkbox:checked');
+            document.getElementById('selected-count').innerText = checked.length;
             const btnApprove = document.getElementById('btn-batch-approve');
+            const btnClear = document.getElementById('btn-clear-sel');
             
-            if (count > 0) {
-                btnGen.disabled = false; btnGen.classList.remove('opacity-50', 'cursor-not-allowed');
-                
+            if (checked.length > 0) {
+                btnClear.classList.remove('hidden');
                 let allDrafted = true;
-                checkedBoxes.forEach(cb => { if(rawData[cb.value].status !== 'Drafted') allDrafted = false; });
-                
-                if (allDrafted) {
-                    btnApprove.disabled = false; btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
-                }
+                checked.forEach(cb => { if(rawData[cb.value].status !== 'Drafted') allDrafted = false; });
+                if (allDrafted) { btnApprove.disabled = false; btnApprove.classList.remove('opacity-50', 'cursor-not-allowed'); } 
+                else { btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed'); }
             } else {
-                btnGen.disabled = true; btnGen.classList.add('opacity-50', 'cursor-not-allowed');
+                btnClear.classList.add('hidden');
                 btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
             }
-        }
-
-        async function batchGenerate() {
-            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-            const btnGen = document.getElementById('btn-batch-gen');
-            
-            btnGen.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Drafting...`;
-            btnGen.disabled = true;
-            
-            const promises = Array.from(checkedBoxes).map(cb => generateSingle(cb.value));
-            await Promise.all(promises);
-            
-            btnGen.innerHTML = `<i class="fas fa-robot mr-1"></i> Auto-Draft Selected`;
-            updateSelection();
+            updateLiveForecast();
         }
 
         function batchApprove() {
@@ -581,34 +1299,261 @@
             updateSelection();
         }
 
-        // --- CHART.JS ---
-        function initChart() {
-            const ctx = document.getElementById('volumeChart').getContext('2d');
-            const segments = ['Champions', 'Loyal', 'Cannot Lose Them', 'Potential Loyalist', 'Need Attention', 'At Risk', 'New Customers', 'Promising', 'About To Sleep', 'Hibernating'];
-            const vols = new Array(10).fill(0);
-            
-            rawData.forEach(r => {
-                const idx = segments.indexOf(r.segment);
-                if(idx > -1) vols[idx] += parseInt(r.BaselineVolume);
-            });
-            
-            const bgColors = ['#60A5FA', '#9CA3AF', '#F87171', '#4ADE80', '#FCD34D', '#FDBA74', '#A3E635', '#D6D3D1', '#38BDF8', '#D1D5DB'];
+        // ==========================================
+        // 4. POST-CAMPAIGN RESULTS & SEGMENT BREAKDOWN
+        // ==========================================
+        function runSimulationOnCurrentPlan() {
+            if (!isABAssigned) {
+                if (!performStratifiedSplit()) return;
+            }
+            const btn = document.getElementById('btn-resimulate');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Simulating...';
+            btn.disabled = true;
 
-            if(myChart) myChart.destroy();
-            myChart = new Chart(ctx, {
+            const successRate = parseInt(document.getElementById('sim-rate').value) / 100.0;
+
+            setTimeout(() => {
+                rawData.forEach(row => {
+                    if (!row.CampaignVariant || row.CampaignVariant === 'None') return;
+                    let act = row.BaselineVolume_L;
+                    const naturalNoise = Math.floor(Math.random() * 3); // 0-2 L natural fluctuation
+                    if (row.CampaignVariant === 'Control Group') {
+                        act += naturalNoise;
+                    } else {
+                        const hit = Math.random() < successRate;
+                        act += naturalNoise + (hit ? row.GapVolume : 0);
+                    }
+                    row.ActualVolume_PostCampaign = act;
+                });
+
+                isSimulated = true;
+                document.getElementById('ab-results-kpi').classList.remove('opacity-40', 'pointer-events-none');
+                btn.innerHTML = `<i class="fas fa-redo"></i> Re-Simulate (<span id="resim-rate-label">${Math.round(successRate*100)}%</span> Hit Rate)`;
+                btn.disabled = false;
+
+                renderABTestResults();
+            }, 350);
+        }
+
+        function resetResultFilters() {
+            document.getElementById('ab-segment').value = 'All';
+            document.getElementById('ab-tier').value = 'All';
+            document.getElementById('ab-cartype').value = 'All';
+            if (isSimulated) renderABTestResults();
+        }
+
+        function selectSegmentFilterFromBreakdown(segName) {
+            const sel = document.getElementById('ab-segment');
+            sel.value = (sel.value === segName) ? 'All' : segName;
+            renderABTestResults();
+        }
+
+        function updateABVariantChart(variantRows) {
+            const ctx = document.getElementById('abVariantChart').getContext('2d');
+            if (abChart) abChart.destroy();
+
+            const labels = variantRows.map(r => r.name);
+            const values = variantRows.map(r => Number(r.perUserBenefit.toFixed(2)));
+            const colors = variantRows.map((r, idx) => idx === 0 && r.perUserBenefit > 0 ? '#10B981' : (r.perUserBenefit >= 0 ? '#6366F1' : '#F43F5E'));
+
+            abChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: segments,
-                    datasets: [{ label: 'Total Volume (L)', data: vols, backgroundColor: bgColors, borderRadius: 4 }]
+                    labels: labels,
+                    datasets: [{
+                        label: 'Profit / User (฿)',
+                        data: values,
+                        backgroundColor: colors,
+                        borderRadius: 6
+                    }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
-                        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 45 } }
+                        x: { beginAtZero: true, grid: { borderDash: [3, 3] }, ticks: { callback: v => '฿' + v } },
+                        y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } }
                     }
                 }
+            });
+        }
+
+        function renderABTestResults() {
+            if(!isSimulated) return;
+            
+            const filterTier = document.getElementById('ab-tier').value;
+            const filterSeg = document.getElementById('ab-segment').value;
+            const filterCar = document.getElementById('ab-cartype').value;
+            
+            let baseFiltered = rawData.filter(r => currentTargetAudienceIds.has(r.id_index) && r.CampaignVariant !== 'None');
+            if (filterTier !== 'All') baseFiltered = baseFiltered.filter(r => r.LatestTier === filterTier);
+            if (filterCar !== 'All') baseFiltered = baseFiltered.filter(r => r.CarType === filterCar);
+
+            let filtered = (filterSeg !== 'All') ? baseFiltered.filter(r => r.segment === filterSeg) : baseFiltered;
+
+            const controlGrp = filtered.filter(r => r.CampaignVariant === 'Control Group');
+            let controlAvgBase = 0, controlAvgAct = 0;
+            if(controlGrp.length > 0) {
+                controlAvgBase = controlGrp.reduce((sum, r) => sum + r.BaselineVolume_L, 0) / controlGrp.length;
+                controlAvgAct = controlGrp.reduce((sum, r) => sum + r.ActualVolume_PostCampaign, 0) / controlGrp.length;
+            }
+            const controlNaturalUplift = controlAvgAct - controlAvgBase; 
+
+            const summary = {};
+            activeVariants.forEach(v => summary[v] = { n: 0, sumBase: 0, sumAct: 0 });
+            filtered.forEach(r => {
+                if(r.CampaignVariant !== 'Control Group' && summary[r.CampaignVariant]) {
+                    summary[r.CampaignVariant].n += 1;
+                    summary[r.CampaignVariant].sumBase += r.BaselineVolume_L;
+                    summary[r.CampaignVariant].sumAct += r.ActualVolume_PostCampaign;
+                }
+            });
+
+            const tbody = document.getElementById('ab-table-body');
+            tbody.innerHTML = '';
+            
+            if(filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center p-10 text-slate-500 font-bold">No users found for these filter criteria.</td></tr>';
+                document.getElementById('ab-executive-summary').innerText = 'No matching customers found for the selected filters.';
+                if (abChart) abChart.destroy();
+            } else {
+                let totalIncVol = 0;
+                const variantRows = [];
+
+                for (const [v, stats] of Object.entries(summary)) {
+                    if(stats.n === 0) continue;
+                    const avgBase = stats.sumBase / stats.n;
+                    const avgAct = stats.sumAct / stats.n;
+                    const perUserUpliftLiters = (avgAct - avgBase) - controlNaturalUplift;
+                    const perUserBenefit = perUserUpliftLiters * MARGIN_PER_LITER;
+                    const totalIncVsControl = perUserUpliftLiters * stats.n;
+                    const marginUplift = totalIncVsControl * MARGIN_PER_LITER;
+                    if (totalIncVsControl > 0) totalIncVol += totalIncVsControl;
+
+                    variantRows.push({
+                        name: v, n: stats.n, avgBase, avgAct,
+                        perUserUpliftLiters, perUserBenefit, totalIncVsControl, marginUplift
+                    });
+                }
+
+                variantRows.sort((a, b) => b.perUserBenefit - a.perUserBenefit);
+                updateABVariantChart(variantRows);
+
+                tbody.innerHTML += `
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <td class="p-2.5 font-semibold text-slate-600"><i class="fas fa-shield-alt text-slate-400 mr-1.5"></i>Control Group (Holdout)</td>
+                        <td class="p-2.5 text-right font-semibold text-slate-600">${controlGrp.length}</td>
+                        <td class="p-2.5 text-right text-slate-500">${controlAvgBase.toFixed(1)} &rarr; ${controlAvgAct.toFixed(1)} L</td>
+                        <td class="p-2.5 text-right text-slate-400">Baseline (${controlNaturalUplift>0?'+':''}${controlNaturalUplift.toFixed(1)} L)</td>
+                        <td class="p-2.5 text-right text-slate-400">-</td>
+                        <td class="p-2.5 text-right text-slate-400">-</td>
+                    </tr>
+                `;
+
+                variantRows.forEach((r, idx) => {
+                    const isWinner = (idx === 0 && r.perUserBenefit > 0);
+                    const lowerV = r.name.toLowerCase();
+                    let icon = 'fa-tag text-purple-500';
+                    if(lowerV.includes('app')) icon = 'fa-mobile-alt text-blue-500';
+                    else if(lowerV.includes('sms')) icon = 'fa-comment-alt text-amber-500';
+                    else if(lowerV.includes('line')) icon = 'fa-comment-dots text-emerald-500';
+
+                    const winnerPill = isWinner ? ' <span class="ml-1 text-[0.6rem] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">🏆 #1</span>' : '';
+
+                    tbody.innerHTML += `
+                        <tr class="${isWinner ? 'bg-emerald-50/40' : 'hover:bg-slate-50'} transition">
+                            <td class="p-2.5 font-bold text-slate-800"><i class="fas ${icon} mr-1.5"></i>${r.name}${winnerPill}</td>
+                            <td class="p-2.5 text-right font-semibold">${r.n}</td>
+                            <td class="p-2.5 text-right text-slate-600">${r.avgBase.toFixed(1)} &rarr; <strong class="text-slate-800">${r.avgAct.toFixed(1)} L</strong></td>
+                            <td class="p-2.5 text-right font-bold ${r.perUserUpliftLiters > 0 ? 'text-emerald-600' : 'text-rose-500'}">${r.perUserUpliftLiters > 0 ? '+' : ''}${r.perUserUpliftLiters.toFixed(1)} L/u</td>
+                            <td class="p-2.5 text-right font-bold ${r.perUserBenefit > 0 ? 'text-amber-600' : 'text-rose-500'}">${r.perUserBenefit > 0 ? '+' : ''}฿${r.perUserBenefit.toFixed(2)}/u</td>
+                            <td class="p-2.5 text-right font-bold text-emerald-600">฿${r.marginUplift.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                const totalProfit = totalIncVol * MARGIN_PER_LITER;
+                const best = variantRows.length > 0 ? variantRows[0] : null;
+                const scopeLabel = filterSeg === 'All' ? 'All Target Segments' : `${filterSeg} Segment`;
+
+                document.getElementById('ab-kpi-vol').innerText = `+${Math.round(totalIncVol).toLocaleString()} L`;
+                document.getElementById('ab-kpi-margin').innerText = `+฿${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('ab-kpi-best').innerText = (best && best.perUserBenefit > 0) ? `${best.name} (+฿${best.perUserBenefit.toFixed(2)}/u)` : 'No uplift';
+
+                if (best && best.perUserBenefit > 0) {
+                    document.getElementById('ab-executive-summary').innerHTML =
+                        `<strong>Executive Takeaway (${scopeLabel}):</strong> The top-performing variant is <span class="font-bold text-emerald-700 underline">${best.name}</span>, generating <strong>+฿${best.perUserBenefit.toFixed(2)}/user</strong> (+${best.perUserUpliftLiters.toFixed(1)} L/user above Control). Across all variants, this campaign delivers <strong>+฿${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}/month</strong> in incremental profit.`;
+                } else {
+                    document.getElementById('ab-executive-summary').innerHTML = `<strong>Executive Takeaway (${scopeLabel}):</strong> No variant generated positive net uplift above the Control Group in this simulation.`;
+                }
+            }
+
+            // Table 2: Breakdown by Customer Segment
+            const segBody = document.getElementById('ab-segment-breakdown-body');
+            segBody.innerHTML = '';
+
+            const segGroups = {};
+            baseFiltered.forEach(r => {
+                if (!segGroups[r.segment]) segGroups[r.segment] = [];
+                segGroups[r.segment].push(r);
+            });
+
+            const segEntries = Object.entries(segGroups);
+            if (segEntries.length === 0) {
+                segBody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-slate-400">No segment data available.</td></tr>';
+                return;
+            }
+
+            segEntries.forEach(([segName, rows]) => {
+                const segCtrl = rows.filter(r => r.CampaignVariant === 'Control Group');
+                const segTreat = rows.filter(r => r.CampaignVariant !== 'Control Group');
+                if (segTreat.length === 0) return;
+
+                let segCtrlUplift = 0;
+                if (segCtrl.length > 0) {
+                    const cb = segCtrl.reduce((s, r) => s + r.BaselineVolume_L, 0) / segCtrl.length;
+                    const ca = segCtrl.reduce((s, r) => s + r.ActualVolume_PostCampaign, 0) / segCtrl.length;
+                    segCtrlUplift = ca - cb;
+                }
+
+                const vMap = {};
+                segTreat.forEach(r => {
+                    if (!vMap[r.CampaignVariant]) vMap[r.CampaignVariant] = { n: 0, sumDiff: 0 };
+                    vMap[r.CampaignVariant].n += 1;
+                    vMap[r.CampaignVariant].sumDiff += (r.ActualVolume_PostCampaign - r.BaselineVolume_L);
+                });
+
+                let segBestVar = '-';
+                let segBestUplift = -9999;
+                for (const [vName, st] of Object.entries(vMap)) {
+                    const u = (st.sumDiff / st.n) - segCtrlUplift;
+                    if (u > segBestUplift) { segBestUplift = u; segBestVar = vName; }
+                }
+
+                const avgTreatDiff = segTreat.reduce((s, r) => s + (r.ActualVolume_PostCampaign - r.BaselineVolume_L), 0) / segTreat.length;
+                const segAvgUplift = avgTreatDiff - segCtrlUplift;
+                const segTotalIncVol = segAvgUplift * segTreat.length;
+                const segMargin = segTotalIncVol * MARGIN_PER_LITER;
+                const isSelected = (filterSeg === segName);
+
+                segBody.innerHTML += `
+                    <tr onclick="selectSegmentFilterFromBreakdown('${segName}')" class="cursor-pointer transition ${isSelected ? 'bg-indigo-50 ring-1 ring-inset ring-indigo-300' : 'hover:bg-slate-50'}">
+                        <td class="p-2.5 font-bold text-slate-800">
+                            <span class="badge ${rows[0].segmentClass}">${segName}</span>
+                        </td>
+                        <td class="p-2.5 text-right font-semibold text-slate-600">${segTreat.length} / ${segCtrl.length}</td>
+                        <td class="p-2.5 text-right font-bold ${segAvgUplift > 0 ? 'text-emerald-600' : 'text-rose-500'}">${segAvgUplift > 0 ? '+' : ''}${segAvgUplift.toFixed(1)} L/u</td>
+                        <td class="p-2.5 text-right font-bold text-indigo-600">${segTotalIncVol > 0 ? '+' : ''}${segTotalIncVol.toFixed(0)} L</td>
+                        <td class="p-2.5 text-right font-bold text-emerald-600">฿${segMargin.toFixed(2)}</td>
+                        <td class="p-2.5 text-center">
+                            <span class="text-[0.7rem] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                                ${segBestVar} (+฿${(segBestUplift * MARGIN_PER_LITER).toFixed(2)}/u)
+                            </span>
+                        </td>
+                    </tr>
+                `;
             });
         }
     </script>
