@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RedMiles Analytics - RFM Customer 360 & A/B Campaign Studio (v29)</title>
+    <title>RedMiles Analytics - RFM Customer 360 & A/B Campaign Studio (v31)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -306,7 +306,7 @@
                             <div class="grid grid-cols-12 gap-2 items-end">
                                 <div class="col-span-5">
                                     <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Search Customer</label>
-                                    <input type="text" id="search-input" onkeyup="onStep1FilterChange()" placeholder="ID, Region, Interest..." class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <input type="text" id="search-input" onkeyup="onStep1FilterChange()" placeholder="ID, Name, Region, Interest..." class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                 </div>
                                 <div class="col-span-3">
                                     <label class="block text-[0.6rem] font-bold text-slate-500 uppercase mb-0.5">Holdout Ctrl</label>
@@ -763,7 +763,7 @@
                 else if(row.segment === 'Cannot Lose Them' || row.segment === 'At Risk' || row.segment === 'Need Attention') multiplier = 1.30;
                 else multiplier = 1.50;
 
-                row.TargetVolume = Math.ceil(v * multiplier);
+                row.TargetVolume = Math.ceil(Number((v * multiplier).toFixed(6)));
                 row.GapVolume = row.TargetVolume - v;
                 row.BonusPoints = row.GapVolume * 5;
                 
@@ -854,6 +854,7 @@
             if (searchStr !== '') {
                 matched = matched.filter(r =>
                     String(r.CustomerID || '').toUpperCase().includes(searchStr) ||
+                    String(r.CustomerName || '').toUpperCase().includes(searchStr) ||
                     String(r.CarType || '').toUpperCase().includes(searchStr) ||
                     String(r.Region || '').toUpperCase().includes(searchStr) ||
                     String(r.Interest || '').toUpperCase().includes(searchStr) ||
@@ -1205,7 +1206,7 @@
                 tr.innerHTML = `
                     <td class="p-2.5 border-b border-slate-100 text-center">${cbHtml}</td>
                     <td class="p-2.5 border-b border-slate-100 font-medium font-mono text-xs">
-                        <div class="text-slate-800 font-bold">${row.CustomerID || '-'} <span class="bg-slate-200 text-slate-600 px-1 rounded text-[0.55rem] uppercase ml-1">${row.LatestTier}</span></div>
+                        <div class="text-slate-800 font-bold">${row.CustomerID || '-'}${row.CustomerName ? ` <span class="font-sans text-indigo-700">&bull; Khun ${row.CustomerName}</span>` : ''} <span class="bg-slate-200 text-slate-600 px-1 rounded text-[0.55rem] uppercase ml-1">${row.LatestTier}</span></div>
                         <div class="text-[0.65rem] text-slate-600 mt-0.5 font-sans">
                             <i class="fas ${carIcon} mr-1"></i> ${row.CarType || 'N/A'} (${row.PreferredFuel || '-'})
                         </div>
@@ -1251,10 +1252,13 @@
                 else chosenConcept = 'Point Boost';
             }
 
-            let greeting = (row.Gender === 'Female') ? "Sawasdee ka!" : "Sawasdee krub!";
-            if(row.Region === 'North') greeting = "Sawasdee jao!";
-            if(row.Region === 'South') greeting = "Sawasdee! Bai dee mai?";
-            if(row.Region === 'Northeast') greeting = "Sabai dee bo?";
+            const custName = (row.CustomerName && String(row.CustomerName).trim()) ? String(row.CustomerName).trim() : '';
+            const khunSuffix = custName ? ` Khun ${custName}` : '';
+
+            let greeting = (row.Gender === 'Female') ? `Sawasdee ka${khunSuffix}!` : `Sawasdee krub${khunSuffix}!`;
+            if(row.Region === 'North') greeting = `Sawasdee jao${khunSuffix}!`;
+            if(row.Region === 'South') greeting = `Sawasdee${khunSuffix}! Bai dee mai?`;
+            if(row.Region === 'Northeast') greeting = `Sabai dee bo${khunSuffix}?`;
 
             const bonusPoints = row.GapVolume * 5;
             const currentPts = parseInt(row.CurrentPoints) || 0;
